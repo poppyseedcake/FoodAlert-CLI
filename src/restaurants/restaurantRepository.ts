@@ -1,4 +1,4 @@
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { and, eq, gt, inArray } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { offers, restaurants, userFavoriteRestaurants, userIgnoredRestaurants, userOfferStates } from '../db/schema.js';
 import type { Offer, Provider, Restaurant } from '../domain/types.js';
@@ -58,7 +58,7 @@ export async function listRestaurantsFromCurrentOffers(userId: number): Promise<
     .from(userOfferStates)
     .innerJoin(offers, eq(userOfferStates.offerId, offers.id))
     .innerJoin(restaurants, eq(offers.restaurantId, restaurants.id))
-    .where(and(eq(userOfferStates.userId, userId), sql`${userOfferStates.currentQuantity} > 0`))
+    .where(and(eq(userOfferStates.userId, userId), gt(userOfferStates.currentQuantity, 0)))
     .groupBy(restaurants.id)
     .orderBy(restaurants.name);
 

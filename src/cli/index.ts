@@ -221,7 +221,7 @@ async function watchUser(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  initializeDatabase();
+  await initializeDatabase();
   const defaultInterval = await getDefaultWatchIntervalMinutes();
   console.log(`FoodAlert CLI started. Default interval: ${defaultInterval} min.`);
 
