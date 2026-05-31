@@ -5,7 +5,7 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "npx tsc --noEmit",
     "build": "npx tsc",
     "start": "node dist/index.js",
     "dev": "npx tsc && node dist/index.js"
@@ -22,7 +22,14 @@
   },
   "homepage": "https://github.com/poppyseedcake/FoodAlert#readme",
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.1",
+    "drizzle-kit": "^0.31.10",
     "typescript": "^6.0.3"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.5.1",
+    "better-sqlite3": "^12.10.0",
+    "drizzle-orm": "^0.45.2"
   }
 }
