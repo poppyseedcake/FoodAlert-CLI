@@ -1,7 +1,7 @@
 import { and, eq, gt, inArray } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { offers, restaurants, userFavoriteRestaurants, userIgnoredRestaurants, userOfferStates } from '../db/schema.js';
-import type { Offer, Provider, Restaurant } from '../domain/types.js';
+import type { OfferInput, Provider, Restaurant, RestaurantInput } from '../domain/types.js';
 
 type RestaurantRow = typeof restaurants.$inferSelect;
 
@@ -16,9 +16,9 @@ export function toRestaurant(row: RestaurantRow): Restaurant {
   };
 }
 
-export async function upsertRestaurant(input: Restaurant): Promise<number> {
+export async function upsertRestaurant(input: RestaurantInput): Promise<number> {
   const now = new Date().toISOString();
-  await db
+  const result = await db
     .insert(restaurants)
     .values({
       provider: input.provider,
@@ -39,17 +39,15 @@ export async function upsertRestaurant(input: Restaurant): Promise<number> {
         lastSeenAt: now,
         updatedAt: now,
       },
-    });
+    })
+    .returning({ id: restaurants.id });
 
-  const row = await db.query.restaurants.findFirst({
-    where: and(eq(restaurants.provider, input.provider), eq(restaurants.externalId, input.externalId)),
-  });
-
-  if (!row) {
+  const id = result[0]?.id;
+  if (!id) {
     throw new Error(`Restaurant not found after upsert: ${input.provider}:${input.externalId}`);
   }
 
-  return row.id;
+  return id;
 }
 
 export async function listRestaurantsFromCurrentOffers(userId: number): Promise<Restaurant[]> {
@@ -112,7 +110,7 @@ export async function listIgnoredRestaurantIds(userId: number): Promise<number[]
   return rows.map((row) => row.restaurantId);
 }
 
-export function restaurantFromOffer(offer: Offer): Restaurant {
+export function restaurantFromOffer(offer: OfferInput): RestaurantInput {
   return {
     provider: offer.provider,
     externalId: offer.restaurantExternalId,

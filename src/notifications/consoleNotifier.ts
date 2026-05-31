@@ -1,13 +1,5 @@
 import type { AlertEvent, UserProfile } from '../domain/types.js';
-
-function formatPickup(date: Date | null): string {
-  if (!date) return '?';
-  return date.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-}
-
-function formatPrice(value: number | null): string {
-  return value === null ? '?' : `${value} PLN`;
-}
+import { formatPickup, formatPrice } from '../utils/format.js';
 
 export class ConsoleNotifier {
   notify(user: UserProfile, event: AlertEvent): void {
@@ -16,6 +8,8 @@ export class ConsoleNotifier {
 
     if (event.type === 'new-offer') {
       console.log(`${prefix} New offer: ${offer.restaurantName} - ${offer.name} (${event.currentQuantity} szt.)`);
+    } else if (event.type === 're-stocked') {
+      console.log(`${prefix} Re-stocked: ${offer.restaurantName} - ${offer.name} (${event.currentQuantity} szt.)`);
     } else if (event.type === 'sold-out') {
       console.log(`${prefix} Sold out: ${offer.restaurantName} - ${offer.name}`);
     } else {

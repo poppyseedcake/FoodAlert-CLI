@@ -8,6 +8,13 @@
       "when": 1780262135317,
       "tag": "0000_flippant_jack_power",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1780263285184,
+      "tag": "0001_wakeful_umar",
+      "breakpoints": true
     }
   ]
 }

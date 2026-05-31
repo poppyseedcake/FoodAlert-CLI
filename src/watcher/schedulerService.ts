@@ -12,11 +12,16 @@ export function calculateNextDelayMs(intervalMinutes: number, random = Math.rand
 }
 
 export class SchedulerService {
-  private readonly timers = new Set<NodeJS.Timeout>();
+  private readonly timers = new Map<number, NodeJS.Timeout>();
+  private readonly generations = new Map<number, number>();
 
   constructor(private readonly watcher = new WatcherService()) {}
 
   async startForUser(user: UserProfile): Promise<void> {
+    this.stopForUser(user.id);
+    const generation = (this.generations.get(user.id) ?? 0) + 1;
+    this.generations.set(user.id, generation);
+
     const defaultInterval = await getDefaultWatchIntervalMinutes();
     const intervalMinutes = user.watchIntervalMinutes ?? defaultInterval;
 
@@ -27,10 +32,14 @@ export class SchedulerService {
         const message = error instanceof Error ? error.message : String(error);
         console.error(`[${user.name}] Error: ${message}`);
       } finally {
+        if (this.generations.get(user.id) !== generation) {
+          return;
+        }
+
         const delay = calculateNextDelayMs(intervalMinutes);
         console.log(`[${user.name}] Next check in ${Math.round(delay / 1000)}s.`);
         const timer = setTimeout(run, delay);
-        this.timers.add(timer);
+        this.timers.set(user.id, timer);
       }
     };
 
@@ -44,11 +53,30 @@ export class SchedulerService {
       return;
     }
 
-    await Promise.all(users.map((user) => this.startForUser(user)));
+    for (const user of users) {
+      await this.startForUser(user);
+    }
+  }
+
+  stopForUser(userId: number): void {
+    const generation = this.generations.get(userId);
+    if (generation !== undefined) {
+      this.generations.set(userId, generation + 1);
+    }
+
+    const timer = this.timers.get(userId);
+    if (timer) {
+      clearTimeout(timer);
+      this.timers.delete(userId);
+    }
   }
 
   stop(): void {
-    for (const timer of this.timers) {
+    for (const [userId, generation] of this.generations) {
+      this.generations.set(userId, generation + 1);
+    }
+
+    for (const timer of this.timers.values()) {
       clearTimeout(timer);
     }
     this.timers.clear();

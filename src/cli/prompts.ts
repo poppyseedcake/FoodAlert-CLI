@@ -30,7 +30,7 @@ export async function selectRestaurant(restaurants: Restaurant[]): Promise<Resta
     choices: [
       ...restaurants.map((restaurant) => ({
         name: `${restaurant.name} [${restaurant.provider}:${restaurant.externalId}]`,
-        value: restaurant.id ?? 0,
+        value: restaurant.id,
       })),
       { name: 'Back', value: 0 },
     ],
@@ -41,13 +41,25 @@ export async function selectRestaurant(restaurants: Restaurant[]): Promise<Resta
 }
 
 export async function promptNewUser(): Promise<Omit<UserProfile, 'id'>> {
-  const name = await input({ message: 'User name' });
-  const foodsiEmail = await input({ message: 'Foodsi email' });
-  const foodsiPassword = await password({ message: 'Foodsi password', mask: '*' });
+  const name = await input({
+    message: 'User name',
+    required: true,
+    validate: (value) => value.trim().length > 0 || 'User name is required',
+  });
+  const foodsiEmail = await input({
+    message: 'Foodsi email',
+    required: true,
+    validate: (value) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim()) || 'Enter a valid email address',
+  });
+  const foodsiPassword = await password({
+    message: 'Foodsi password',
+    mask: '*',
+    validate: (value) => value.length >= 8 || 'Password must have at least 8 characters',
+  });
 
   return {
-    name,
-    foodsiEmail,
+    name: name.trim(),
+    foodsiEmail: foodsiEmail.trim(),
     foodsiPassword,
     notifyOnlyFavorites: false,
     watchIntervalMinutes: null,
@@ -56,5 +68,6 @@ export async function promptNewUser(): Promise<Omit<UserProfile, 'id'>> {
 
 export async function promptMinutes(message: string): Promise<number> {
   const value = await number({ message, default: 5, required: true });
-  return Math.max(1, Math.round(value));
+  const rounded = Math.round(value);
+  return Number.isFinite(rounded) && rounded >= 1 ? rounded : 1;
 }

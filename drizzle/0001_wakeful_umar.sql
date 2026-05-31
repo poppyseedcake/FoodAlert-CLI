@@ -1,0 +1,1 @@
+CREATE INDEX `offers_restaurant_id_idx` ON `offers` (`restaurant_id`);

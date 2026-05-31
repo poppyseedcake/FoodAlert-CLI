@@ -10,7 +10,7 @@ export type UserProfile = {
 };
 
 export type Restaurant = {
-  id?: number;
+  id: number;
   provider: Provider;
   externalId: string;
   name: string;
@@ -19,7 +19,7 @@ export type Restaurant = {
 };
 
 export type Offer = {
-  id?: number;
+  id: number;
   provider: Provider;
   externalId: string;
   restaurantExternalId: string;
@@ -36,7 +36,11 @@ export type Offer = {
   distanceKm: number | null;
 };
 
+export type RestaurantInput = Omit<Restaurant, 'id'>;
+export type OfferInput = Omit<Offer, 'id'>;
+
 export type AlertEvent =
-  | { type: 'new-offer'; offer: Offer; previousQuantity: number; currentQuantity: number }
-  | { type: 'sold-out'; offer: Offer; previousQuantity: number; currentQuantity: number }
-  | { type: 'stock-change'; offer: Offer; previousQuantity: number; currentQuantity: number };
+  | { type: 'new-offer'; offer: OfferInput; previousQuantity: number; currentQuantity: number }
+  | { type: 're-stocked'; offer: OfferInput; previousQuantity: number; currentQuantity: number }
+  | { type: 'sold-out'; offer: OfferInput; previousQuantity: number; currentQuantity: number }
+  | { type: 'stock-change'; offer: OfferInput; previousQuantity: number; currentQuantity: number };

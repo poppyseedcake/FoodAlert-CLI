@@ -1,4 +1,4 @@
-import { integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const appSettings = sqliteTable('app_settings', {
   id: integer('id').primaryKey(),
@@ -51,14 +51,17 @@ export const offers = sqliteTable(
     createdAt: text('created_at').notNull(),
     updatedAt: text('updated_at').notNull(),
   },
-  (table) => [uniqueIndex('offers_provider_external_id_idx').on(table.provider, table.externalId)],
+  (table) => [
+    uniqueIndex('offers_provider_external_id_idx').on(table.provider, table.externalId),
+    index('offers_restaurant_id_idx').on(table.restaurantId),
+  ],
 );
 
 export const userOfferStates = sqliteTable(
   'user_offer_states',
   {
-    userId: integer('user_id').notNull().references(() => users.id),
-    offerId: integer('offer_id').notNull().references(() => offers.id),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    offerId: integer('offer_id').notNull().references(() => offers.id, { onDelete: 'cascade' }),
     currentQuantity: integer('current_quantity').notNull(),
     lastSeenAt: text('last_seen_at').notNull(),
   },
@@ -68,8 +71,8 @@ export const userOfferStates = sqliteTable(
 export const userFavoriteRestaurants = sqliteTable(
   'user_favorite_restaurants',
   {
-    userId: integer('user_id').notNull().references(() => users.id),
-    restaurantId: integer('restaurant_id').notNull().references(() => restaurants.id),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    restaurantId: integer('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
     createdAt: text('created_at').notNull(),
   },
   (table) => [uniqueIndex('user_favorite_restaurants_idx').on(table.userId, table.restaurantId)],
@@ -78,8 +81,8 @@ export const userFavoriteRestaurants = sqliteTable(
 export const userIgnoredRestaurants = sqliteTable(
   'user_ignored_restaurants',
   {
-    userId: integer('user_id').notNull().references(() => users.id),
-    restaurantId: integer('restaurant_id').notNull().references(() => restaurants.id),
+    userId: integer('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+    restaurantId: integer('restaurant_id').notNull().references(() => restaurants.id, { onDelete: 'cascade' }),
     createdAt: text('created_at').notNull(),
   },
   (table) => [uniqueIndex('user_ignored_restaurants_idx').on(table.userId, table.restaurantId)],

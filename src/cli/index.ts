@@ -1,5 +1,5 @@
 import { confirm, select } from '@inquirer/prompts';
-import { initializeDatabase } from '../db/client.js';
+import { closeDatabase, initializeDatabase } from '../db/client.js';
 import {
   createUser,
   getDefaultWatchIntervalMinutes,
@@ -22,6 +22,7 @@ import {
 import { clearCurrentOffersForUser, listCurrentOffersForUser } from '../offers/offerRepository.js';
 import { SchedulerService } from '../watcher/schedulerService.js';
 import { WatcherService } from '../watcher/watcherService.js';
+import { formatPickup, formatPrice } from '../utils/format.js';
 import { promptMinutes, promptNewUser, selectRestaurant, selectUser } from './prompts.js';
 
 type MainAction =
@@ -29,19 +30,33 @@ type MainAction =
   | 'run-once'
   | 'watch-user'
   | 'watch-all'
+  | 'stop-watchers'
   | 'offers'
   | 'restaurants'
   | 'settings'
   | 'exit';
 
-function formatPickup(date: Date | null): string {
-  if (!date) return '?';
-  return date.toLocaleString('pl-PL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+const scheduler = new SchedulerService();
+let isShuttingDown = false;
+
+async function shutdown(exitCode = 0): Promise<never> {
+  if (isShuttingDown) {
+    process.exit(exitCode);
+  }
+
+  isShuttingDown = true;
+  scheduler.stop();
+  closeDatabase();
+  process.exit(exitCode);
 }
 
-function formatPrice(value: number | null): string {
-  return value === null ? '?' : `${value} PLN`;
-}
+process.once('SIGINT', () => {
+  void shutdown(130);
+});
+
+process.once('SIGTERM', () => {
+  void shutdown(143);
+});
 
 async function usersMenu(): Promise<void> {
   const action = await select({
@@ -155,7 +170,7 @@ async function restaurantsMenu(): Promise<void> {
         : await chooseRestaurantSource(user.id);
 
   const restaurant = await selectRestaurant(restaurants);
-  if (!restaurant?.id) return;
+  if (!restaurant) return;
 
   if (action === 'add-favorite') {
     await addFavoriteRestaurant(user.id, restaurant.id);
@@ -217,7 +232,7 @@ async function runOnce(): Promise<void> {
 async function watchUser(): Promise<void> {
   const user = await selectUser(await listUsers());
   if (!user) return;
-  await new SchedulerService().startForUser(user);
+  await scheduler.startForUser(user);
 }
 
 async function main(): Promise<void> {
@@ -233,6 +248,7 @@ async function main(): Promise<void> {
         { name: 'Run once for user', value: 'run-once' },
         { name: 'Watch one user', value: 'watch-user' },
         { name: 'Watch all users', value: 'watch-all' },
+        { name: 'Stop watchers', value: 'stop-watchers' },
         { name: 'Offers', value: 'offers' },
         { name: 'Restaurants', value: 'restaurants' },
         { name: 'Settings', value: 'settings' },
@@ -243,7 +259,7 @@ async function main(): Promise<void> {
     switch (action) {
       case 'exit':
         console.log('Bye.');
-        process.exit(0);
+        await shutdown(0);
       case 'users':
         await usersMenu();
         break;
@@ -254,7 +270,11 @@ async function main(): Promise<void> {
         await watchUser();
         break;
       case 'watch-all':
-        await new SchedulerService().startForAllUsers();
+        await scheduler.startForAllUsers();
+        break;
+      case 'stop-watchers':
+        scheduler.stop();
+        console.log('Watchers stopped.');
         break;
       case 'offers':
         await offersMenu();
@@ -272,9 +292,13 @@ async function main(): Promise<void> {
 main().catch((error) => {
   if (error instanceof Error && error.name === 'ExitPromptError') {
     console.log('\nBye.');
+    scheduler.stop();
+    closeDatabase();
     return;
   }
 
   console.error(error);
+  scheduler.stop();
+  closeDatabase();
   process.exitCode = 1;
 });

@@ -1,4 +1,4 @@
-import type { Offer } from '../domain/types.js';
+import type { OfferInput } from '../domain/types.js';
 import type { FoodsiApiItem } from './foodsiTypes.js';
 
 function parseDate(value: string | undefined): Date | null {
@@ -18,9 +18,13 @@ function parseNumber(value: number | string | undefined): number | null {
   return null;
 }
 
-export function mapFoodsiOffer(item: FoodsiApiItem): Offer {
+export function mapFoodsiOffer(item: FoodsiApiItem): OfferInput {
   const attributes = item.attributes;
-  const restaurantExternalId = String(attributes.venue_id ?? attributes.venue_name ?? 'unknown');
+  if (attributes.venue_id === undefined || attributes.venue_id === null) {
+    throw new Error(`Foodsi offer ${item.id} is missing venue_id`);
+  }
+
+  const restaurantExternalId = String(attributes.venue_id);
 
   return {
     provider: 'foodsi',

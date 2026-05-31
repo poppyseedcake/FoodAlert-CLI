@@ -65,3 +65,9 @@ export async function initializeDatabase(): Promise<void> {
     .values({ id: 1, defaultWatchIntervalMinutes: 5 })
     .onConflictDoNothing();
 }
+
+export function closeDatabase(): void {
+  if (sqlite.open) {
+    sqlite.close();
+  }
+}

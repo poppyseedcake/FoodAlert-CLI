@@ -1,4 +1,4 @@
-import type { Offer, UserProfile } from '../domain/types.js';
+import type { OfferInput, UserProfile } from '../domain/types.js';
 import { mapFoodsiOffer } from './mapFoodsiOffer.js';
 import type { FoodsiApiResponse } from './foodsiTypes.js';
 
@@ -10,9 +10,10 @@ const FOODSI_HEADERS = {
   'system-version': 'android_3.0.0',
   'user-agent': 'okhttp/3.12.0',
 };
+const MAX_PAGES = 50;
 
 function getTimestamp(): string {
-  return new Date().toISOString().replace('Z', '+00:00');
+  return new Date().toISOString();
 }
 
 function getAuthHeader(value: string | null, name: string): string {
@@ -23,7 +24,7 @@ function getAuthHeader(value: string | null, name: string): string {
 }
 
 export class FoodsiClient {
-  async fetchOffers(user: UserProfile): Promise<Offer[]> {
+  async fetchOffers(user: UserProfile): Promise<OfferInput[]> {
     const authRes = await fetch(FOODSI_AUTH_URL, {
       method: 'POST',
       headers: FOODSI_HEADERS,
@@ -51,10 +52,16 @@ export class FoodsiClient {
       sort: 'distance,pickup_from',
     });
 
-    const allItems: Offer[] = [];
+    const allItems: OfferInput[] = [];
     let url: string | null = `${FOODSI_API_BASE}?${params}`;
+    let pageCount = 0;
 
     while (url) {
+      pageCount += 1;
+      if (pageCount > MAX_PAGES) {
+        throw new Error(`Foodsi API pagination exceeded ${MAX_PAGES} pages for ${user.name}`);
+      }
+
       const res = await fetch(url, { headers: authHeaders });
 
       if (!res.ok) {

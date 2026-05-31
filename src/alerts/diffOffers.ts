@@ -1,6 +1,6 @@
-import type { AlertEvent, Offer } from '../domain/types.js';
+import type { AlertEvent, OfferInput } from '../domain/types.js';
 
-export function diffOffer(offer: Offer, previousQuantity: number): AlertEvent | null {
+export function diffOffer(offer: OfferInput, previousQuantity: number, offerExistedBefore: boolean): AlertEvent | null {
   const currentQuantity = offer.quantity;
 
   if (currentQuantity === previousQuantity) {
@@ -8,7 +8,7 @@ export function diffOffer(offer: Offer, previousQuantity: number): AlertEvent | 
   }
 
   if (previousQuantity === 0 && currentQuantity > 0) {
-    return { type: 'new-offer', offer, previousQuantity, currentQuantity };
+    return { type: offerExistedBefore ? 're-stocked' : 'new-offer', offer, previousQuantity, currentQuantity };
   }
 
   if (previousQuantity > 0 && currentQuantity === 0) {
