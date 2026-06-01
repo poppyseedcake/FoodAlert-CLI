@@ -1,5 +1,5 @@
 import { confirm, select } from '@inquirer/prompts';
-import type { Restaurant } from '../domain/types.js';
+import type { Restaurant, UserProfile } from '../domain/types.js';
 import { closeDatabase, initializeDatabase } from '../db/client.js';
 import {
   createUser,
@@ -10,21 +10,21 @@ import {
   setUserWatchInterval,
 } from '../users/userRepository.js';
 import {
-  addFavoriteRestaurant,
-  addIgnoredRestaurant,
+  addFavoriteRestaurants,
+  addIgnoredRestaurants,
   getRestaurantsByIds,
   listFavoriteRestaurantIds,
   listIgnoredRestaurantIds,
   listRecentlySeenRestaurants,
   listRestaurantsFromCurrentOffers,
-  removeFavoriteRestaurant,
-  removeIgnoredRestaurant,
+  removeFavoriteRestaurants,
+  removeIgnoredRestaurants,
 } from '../restaurants/restaurantRepository.js';
 import { clearCurrentOffersForUser, listCurrentOffersForUser } from '../offers/offerRepository.js';
 import { SchedulerService } from '../watcher/schedulerService.js';
 import { WatcherService } from '../watcher/watcherService.js';
 import { formatPickup, formatPrice } from '../utils/format.js';
-import { promptMinutes, promptNewUser, selectRestaurant, selectUser } from './prompts.js';
+import { promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
 
 type MainAction =
   | 'users'
@@ -130,7 +130,7 @@ async function settingsMenu(): Promise<void> {
 }
 
 async function chooseRestaurantSource(userId: number): Promise<Restaurant[] | null> {
-  const source = await select({
+  const source = await select<RestaurantSource>({
     message: 'Restaurant source',
     choices: [
       { name: 'Current offers', value: 'current' },
@@ -143,60 +143,119 @@ async function chooseRestaurantSource(userId: number): Promise<Restaurant[] | nu
   return source === 'current' ? listRestaurantsFromCurrentOffers(userId) : listRecentlySeenRestaurants();
 }
 
-async function restaurantsMenu(): Promise<void> {
-  const user = await selectUser(await listUsers());
-  if (!user) return;
+type RestaurantSource = 'current' | 'recent' | 'back';
+type ListKind = 'favorites' | 'ignored';
+type ListAction = 'show' | 'add' | 'remove' | 'back';
+type ListPickerAction = ListKind | 'back';
+
+function printRestaurants(restaurants: Restaurant[]): void {
+  for (const restaurant of restaurants) {
+    console.log(`${restaurant.id}. ${restaurant.name} [${restaurant.provider}:${restaurant.externalId}]`);
+  }
+}
+
+async function listPickerMenu(user: UserProfile, kind: ListKind): Promise<void> {
+  const isFavorite = kind === 'favorites';
+  const label = isFavorite ? 'favorites' : 'ignored';
 
   while (true) {
-    const action = await select({
-      message: 'Restaurants',
+    const action = await select<ListAction>({
+      message: `${label[0].toUpperCase()}${label.slice(1)} for ${user.name}`,
       choices: [
-        { name: 'Add favorite', value: 'add-favorite' },
-        { name: 'Remove favorite', value: 'remove-favorite' },
-        { name: 'Add ignored', value: 'add-ignored' },
-        { name: 'Remove ignored', value: 'remove-ignored' },
-        { name: 'List favorites', value: 'list-favorites' },
-        { name: 'List ignored', value: 'list-ignored' },
+        { name: `Show ${label}`, value: 'show' },
+        { name: `Add to ${label}`, value: 'add' },
+        { name: `Remove from ${label}`, value: 'remove' },
         { name: 'Back', value: 'back' },
       ],
     });
 
     if (action === 'back') return;
 
-    if (action === 'list-favorites' || action === 'list-ignored') {
-      const ids = action === 'list-favorites' ? await listFavoriteRestaurantIds(user.id) : await listIgnoredRestaurantIds(user.id);
+    if (action === 'show') {
+      const ids = isFavorite
+        ? await listFavoriteRestaurantIds(user.id)
+        : await listIgnoredRestaurantIds(user.id);
       const restaurants = await getRestaurantsByIds(ids);
-      for (const restaurant of restaurants) {
-        console.log(`${restaurant.id}. ${restaurant.name} [${restaurant.provider}:${restaurant.externalId}]`);
+      if (restaurants.length === 0) {
+        console.log(`No ${label} for ${user.name}.`);
+      } else {
+        printRestaurants(restaurants);
       }
       continue;
     }
 
-    const restaurants =
-      action === 'remove-favorite'
-        ? await getRestaurantsByIds(await listFavoriteRestaurantIds(user.id))
-        : action === 'remove-ignored'
-          ? await getRestaurantsByIds(await listIgnoredRestaurantIds(user.id))
-          : await chooseRestaurantSource(user.id);
+    if (action === 'add') {
+      const existingIds = new Set(
+        isFavorite
+          ? await listFavoriteRestaurantIds(user.id)
+          : await listIgnoredRestaurantIds(user.id),
+      );
+      const source = await chooseRestaurantSource(user.id);
+      if (source === null) continue;
 
-    if (restaurants === null) continue;
+      const candidates = source.filter((restaurant) => !existingIds.has(restaurant.id));
+      if (candidates.length === 0) {
+        console.log(`No new restaurants to add to ${label}.`);
+        continue;
+      }
 
-    const restaurant = await selectRestaurant(restaurants);
-    if (!restaurant) continue;
+      const picked = await selectRestaurants(candidates, `Select restaurants to add to ${label} (space to toggle, enter to confirm)`);
+      if (picked.length === 0) {
+        console.log('No restaurants selected.');
+        continue;
+      }
 
-    if (action === 'add-favorite') {
-      await addFavoriteRestaurant(user.id, restaurant.id);
-      console.log('Added favorite restaurant.');
-    } else if (action === 'remove-favorite') {
-      await removeFavoriteRestaurant(user.id, restaurant.id);
-      console.log('Removed favorite restaurant.');
-    } else if (action === 'add-ignored') {
-      await addIgnoredRestaurant(user.id, restaurant.id);
-      console.log('Added ignored restaurant.');
-    } else {
-      await removeIgnoredRestaurant(user.id, restaurant.id);
-      console.log('Removed ignored restaurant.');
+      const ids = picked.map((restaurant) => restaurant.id);
+      if (isFavorite) {
+        await addFavoriteRestaurants(user.id, ids);
+      } else {
+        await addIgnoredRestaurants(user.id, ids);
+      }
+      console.log(`Added ${picked.length} restaurant(s) to ${label}.`);
+      continue;
     }
+
+    const ids = isFavorite
+      ? await listFavoriteRestaurantIds(user.id)
+      : await listIgnoredRestaurantIds(user.id);
+    const restaurants = await getRestaurantsByIds(ids);
+    if (restaurants.length === 0) {
+      console.log(`No ${label} to remove for ${user.name}.`);
+      continue;
+    }
+
+    const picked = await selectRestaurants(restaurants, `Select restaurants to remove from ${label} (space to toggle, enter to confirm)`);
+    if (picked.length === 0) {
+      console.log('No restaurants selected.');
+      continue;
+    }
+
+    const pickedIds = picked.map((restaurant) => restaurant.id);
+    if (isFavorite) {
+      await removeFavoriteRestaurants(user.id, pickedIds);
+    } else {
+      await removeIgnoredRestaurants(user.id, pickedIds);
+    }
+    console.log(`Removed ${picked.length} restaurant(s) from ${label}.`);
+  }
+}
+
+async function restaurantsMenu(): Promise<void> {
+  const user = await selectUser(await listUsers());
+  if (!user) return;
+
+  while (true) {
+    const action = await select<ListPickerAction>({
+      message: `Restaurants (${user.name})`,
+      choices: [
+        { name: 'Manage favorites', value: 'favorites' },
+        { name: 'Manage ignored', value: 'ignored' },
+        { name: 'Back', value: 'back' },
+      ],
+    });
+
+    if (action === 'back') return;
+    await listPickerMenu(user, action);
   }
 }
 

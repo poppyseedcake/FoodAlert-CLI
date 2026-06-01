@@ -1,4 +1,4 @@
-import { input, number, password, select } from '@inquirer/prompts';
+import { checkbox, input, number, password, select } from '@inquirer/prompts';
 import type { Restaurant, UserProfile } from '../domain/types.js';
 
 export async function selectUser(users: UserProfile[]): Promise<UserProfile | null> {
@@ -38,6 +38,22 @@ export async function selectRestaurant(restaurants: Restaurant[]): Promise<Resta
 
   if (restaurantId === 0) return null;
   return restaurants.find((restaurant) => restaurant.id === restaurantId) ?? null;
+}
+
+export async function selectRestaurants(restaurants: Restaurant[], message: string): Promise<Restaurant[]> {
+  if (restaurants.length === 0) return [];
+
+  const ids = await checkbox<number>({
+    message,
+    pageSize: 20,
+    choices: restaurants.map((restaurant) => ({
+      name: `${restaurant.name} [${restaurant.provider}:${restaurant.externalId}]`,
+      value: restaurant.id,
+    })),
+  });
+
+  const idSet = new Set(ids);
+  return restaurants.filter((restaurant) => idSet.has(restaurant.id));
 }
 
 export async function promptNewUser(): Promise<Omit<UserProfile, 'id'>> {

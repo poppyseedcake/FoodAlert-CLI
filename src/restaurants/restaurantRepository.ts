@@ -81,10 +81,26 @@ export async function addFavoriteRestaurant(userId: number, restaurantId: number
     .onConflictDoNothing();
 }
 
+export async function addFavoriteRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
+  if (restaurantIds.length === 0) return;
+  const now = new Date().toISOString();
+  await db
+    .insert(userFavoriteRestaurants)
+    .values(restaurantIds.map((restaurantId) => ({ userId, restaurantId, createdAt: now })))
+    .onConflictDoNothing();
+}
+
 export async function removeFavoriteRestaurant(userId: number, restaurantId: number): Promise<void> {
   await db
     .delete(userFavoriteRestaurants)
     .where(and(eq(userFavoriteRestaurants.userId, userId), eq(userFavoriteRestaurants.restaurantId, restaurantId)));
+}
+
+export async function removeFavoriteRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
+  if (restaurantIds.length === 0) return;
+  await db
+    .delete(userFavoriteRestaurants)
+    .where(and(eq(userFavoriteRestaurants.userId, userId), inArray(userFavoriteRestaurants.restaurantId, restaurantIds)));
 }
 
 export async function addIgnoredRestaurant(userId: number, restaurantId: number): Promise<void> {
@@ -94,10 +110,26 @@ export async function addIgnoredRestaurant(userId: number, restaurantId: number)
     .onConflictDoNothing();
 }
 
+export async function addIgnoredRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
+  if (restaurantIds.length === 0) return;
+  const now = new Date().toISOString();
+  await db
+    .insert(userIgnoredRestaurants)
+    .values(restaurantIds.map((restaurantId) => ({ userId, restaurantId, createdAt: now })))
+    .onConflictDoNothing();
+}
+
 export async function removeIgnoredRestaurant(userId: number, restaurantId: number): Promise<void> {
   await db
     .delete(userIgnoredRestaurants)
     .where(and(eq(userIgnoredRestaurants.userId, userId), eq(userIgnoredRestaurants.restaurantId, restaurantId)));
+}
+
+export async function removeIgnoredRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
+  if (restaurantIds.length === 0) return;
+  await db
+    .delete(userIgnoredRestaurants)
+    .where(and(eq(userIgnoredRestaurants.userId, userId), inArray(userIgnoredRestaurants.restaurantId, restaurantIds)));
 }
 
 export async function listFavoriteRestaurantIds(userId: number): Promise<number[]> {
