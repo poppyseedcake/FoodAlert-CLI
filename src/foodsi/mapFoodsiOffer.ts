@@ -18,13 +18,13 @@ function parseNumber(value: number | string | undefined): number | null {
   return null;
 }
 
-export function mapFoodsiOffer(item: FoodsiApiItem): OfferInput {
+export function mapFoodsiOffer(item: FoodsiApiItem): OfferInput | null {
   const attributes = item.attributes;
-  if (attributes.venue_id === undefined || attributes.venue_id === null) {
-    throw new Error(`Foodsi offer ${item.id} is missing venue_id`);
-  }
+  const restaurantExternalId = String(attributes.venue_id ?? attributes.venue_name ?? null);
 
-  const restaurantExternalId = String(attributes.venue_id);
+  if (!restaurantExternalId || restaurantExternalId === 'null') {
+    return null;
+  }
 
   return {
     provider: 'foodsi',

@@ -70,7 +70,10 @@ export class FoodsiClient {
 
       const json = (await res.json()) as FoodsiApiResponse;
       for (const item of json.data ?? []) {
-        allItems.push(mapFoodsiOffer(item));
+        const mapped = mapFoodsiOffer(item);
+        if (mapped) {
+          allItems.push(mapped);
+        }
       }
 
       url = json.links?.next && json.links.next !== json.links.self ? json.links.next : null;
