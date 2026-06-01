@@ -334,6 +334,7 @@ async function main(): Promise<void> {
       case 'exit':
         console.log('Bye.');
         await shutdown(0);
+        break;
       case 'users':
         await usersMenu();
         break;
