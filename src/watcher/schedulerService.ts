@@ -1,19 +1,29 @@
 import { getDefaultWatchIntervalMinutes, listUsers } from '../users/userRepository.js';
 import type { UserProfile } from '../domain/types.js';
 import { WatcherService } from './watcherService.js';
+import { calculateNextDelayMs } from './schedulerTiming.js';
 
-const JITTER_MS = 30_000;
-const MIN_DELAY_MS = 30_000;
+export type SchedulerStatusEntry = {
+  userId: number;
+  name: string;
+  watching: boolean;
+  nextRunAt: Date | null;
+};
 
-export function calculateNextDelayMs(intervalMinutes: number, random = Math.random): number {
-  const baseDelay = intervalMinutes * 60_000;
-  const jitter = Math.floor((random() * 2 - 1) * JITTER_MS);
-  return Math.max(MIN_DELAY_MS, baseDelay + jitter);
-}
-
+/**
+ * Scheduler for periodic Foodsi fetches.
+ *
+ * Concurrency model: each user has an independent timer. The "generation" counter is
+ * incremented on every startForUser / stopForUser call, and the in-flight callback checks
+ * its captured generation before scheduling the next tick. This way, if you restart a
+ * watcher while a previous runOnce is still in flight, the old callback's setTimeout is
+ * a no-op (the new generation took over).
+ */
 export class SchedulerService {
   private readonly timers = new Map<number, NodeJS.Timeout>();
   private readonly generations = new Map<number, number>();
+  private readonly nextRunAt = new Map<number, number>();
+  private readonly names = new Map<number, string>();
 
   constructor(private readonly watcher = new WatcherService()) {}
 
@@ -21,6 +31,7 @@ export class SchedulerService {
     this.stopForUser(user.id);
     const generation = (this.generations.get(user.id) ?? 0) + 1;
     this.generations.set(user.id, generation);
+    this.names.set(user.id, user.name);
 
     const defaultInterval = await getDefaultWatchIntervalMinutes();
     const intervalMinutes = user.watchIntervalMinutes ?? defaultInterval;
@@ -37,6 +48,8 @@ export class SchedulerService {
         }
 
         const delay = calculateNextDelayMs(intervalMinutes);
+        const nextAt = Date.now() + delay;
+        this.nextRunAt.set(user.id, nextAt);
         console.log(`[${user.name}] Next check in ${Math.round(delay / 1000)}s.`);
         const timer = setTimeout(run, delay);
         this.timers.set(user.id, timer);
@@ -53,12 +66,14 @@ export class SchedulerService {
       return;
     }
 
-    for (const user of users) {
-      await this.startForUser(user);
-    }
+    await Promise.all(users.map((user) => this.startForUser(user)));
   }
 
   stopForUser(userId: number): void {
+    this.forgetUser(userId, false);
+  }
+
+  forgetUser(userId: number, removeName = true): void {
     const generation = this.generations.get(userId);
     if (generation !== undefined) {
       this.generations.set(userId, generation + 1);
@@ -68,6 +83,10 @@ export class SchedulerService {
     if (timer) {
       clearTimeout(timer);
       this.timers.delete(userId);
+    }
+    this.nextRunAt.delete(userId);
+    if (removeName) {
+      this.names.delete(userId);
     }
   }
 
@@ -80,5 +99,18 @@ export class SchedulerService {
       clearTimeout(timer);
     }
     this.timers.clear();
+    this.nextRunAt.clear();
+  }
+
+  getStatus(): SchedulerStatusEntry[] {
+    return Array.from(this.names.entries()).map(([userId, name]) => {
+      const nextAt = this.nextRunAt.get(userId);
+      return {
+        userId,
+        name,
+        watching: this.timers.has(userId),
+        nextRunAt: nextAt ? new Date(nextAt) : null,
+      };
+    });
   }
 }

@@ -1,4 +1,5 @@
 import { checkbox, input, number, password, select } from '@inquirer/prompts';
+import { DEFAULT_WATCH_INTERVAL_MINUTES, MIN_WATCH_INTERVAL_MINUTES } from '../domain/constants.js';
 import type { Restaurant, UserProfile } from '../domain/types.js';
 
 export async function selectUser(users: UserProfile[]): Promise<UserProfile | null> {
@@ -83,7 +84,6 @@ export async function promptNewUser(): Promise<Omit<UserProfile, 'id'>> {
 }
 
 export async function promptMinutes(message: string): Promise<number> {
-  const value = await number({ message, default: 5, required: true });
-  const rounded = Math.round(value);
-  return Number.isFinite(rounded) && rounded >= 1 ? rounded : 1;
+  const value = await number({ message, default: DEFAULT_WATCH_INTERVAL_MINUTES, required: true });
+  return Math.max(MIN_WATCH_INTERVAL_MINUTES, Math.round(value));
 }

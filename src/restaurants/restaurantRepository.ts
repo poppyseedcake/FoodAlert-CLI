@@ -1,7 +1,11 @@
-import { and, eq, gt, inArray } from 'drizzle-orm';
+import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { offers, restaurants, userFavoriteRestaurants, userIgnoredRestaurants, userOfferStates } from '../db/schema.js';
 import type { OfferInput, Provider, Restaurant, RestaurantInput } from '../domain/types.js';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import * as schema from '../db/schema.js';
+
+type DbOrTx = BetterSQLite3Database<typeof schema>;
 
 type RestaurantRow = typeof restaurants.$inferSelect;
 
@@ -50,6 +54,44 @@ export async function upsertRestaurant(input: RestaurantInput): Promise<number> 
   return id;
 }
 
+export function upsertRestaurantsBatch(executor: DbOrTx, inputs: RestaurantInput[]): Map<string, number> {
+  const result = new Map<string, number>();
+  if (inputs.length === 0) return result;
+
+  const now = new Date().toISOString();
+  const rows = executor
+    .insert(restaurants)
+    .values(
+      inputs.map((input) => ({
+        provider: input.provider,
+        externalId: input.externalId,
+        name: input.name,
+        logoUrl: input.logoUrl,
+        address: input.address,
+        lastSeenAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [restaurants.provider, restaurants.externalId],
+      set: {
+        name: sql.raw(`excluded.${restaurants.name.name}`),
+        logoUrl: sql.raw(`excluded.${restaurants.logoUrl.name}`),
+        address: sql.raw(`excluded.${restaurants.address.name}`),
+        lastSeenAt: now,
+        updatedAt: now,
+      },
+    })
+    .returning({ provider: restaurants.provider, externalId: restaurants.externalId, id: restaurants.id })
+    .all();
+
+  for (const row of rows) {
+    result.set(`${row.provider}:${row.externalId}`, row.id);
+  }
+  return result;
+}
+
 export async function listRestaurantsFromCurrentOffers(userId: number): Promise<Restaurant[]> {
   const rows = await db
     .select({ restaurant: restaurants })
@@ -90,24 +132,11 @@ export async function addFavoriteRestaurants(userId: number, restaurantIds: numb
     .onConflictDoNothing();
 }
 
-export async function removeFavoriteRestaurant(userId: number, restaurantId: number): Promise<void> {
-  await db
-    .delete(userFavoriteRestaurants)
-    .where(and(eq(userFavoriteRestaurants.userId, userId), eq(userFavoriteRestaurants.restaurantId, restaurantId)));
-}
-
 export async function removeFavoriteRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
   if (restaurantIds.length === 0) return;
   await db
     .delete(userFavoriteRestaurants)
     .where(and(eq(userFavoriteRestaurants.userId, userId), inArray(userFavoriteRestaurants.restaurantId, restaurantIds)));
-}
-
-export async function addIgnoredRestaurant(userId: number, restaurantId: number): Promise<void> {
-  await db
-    .insert(userIgnoredRestaurants)
-    .values({ userId, restaurantId, createdAt: new Date().toISOString() })
-    .onConflictDoNothing();
 }
 
 export async function addIgnoredRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
@@ -117,12 +146,6 @@ export async function addIgnoredRestaurants(userId: number, restaurantIds: numbe
     .insert(userIgnoredRestaurants)
     .values(restaurantIds.map((restaurantId) => ({ userId, restaurantId, createdAt: now })))
     .onConflictDoNothing();
-}
-
-export async function removeIgnoredRestaurant(userId: number, restaurantId: number): Promise<void> {
-  await db
-    .delete(userIgnoredRestaurants)
-    .where(and(eq(userIgnoredRestaurants.userId, userId), eq(userIgnoredRestaurants.restaurantId, restaurantId)));
 }
 
 export async function removeIgnoredRestaurants(userId: number, restaurantIds: number[]): Promise<void> {

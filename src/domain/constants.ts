@@ -1,0 +1,2 @@
+export const DEFAULT_WATCH_INTERVAL_MINUTES = 5;
+export const MIN_WATCH_INTERVAL_MINUTES = 1;

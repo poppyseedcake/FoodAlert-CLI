@@ -1,8 +1,8 @@
-import type { AlertEvent, UserProfile } from '../domain/types.js';
+import type { AlertEvent, UserDisplay } from '../domain/types.js';
 import { formatPickup, formatPrice } from '../utils/format.js';
 
 export class ConsoleNotifier {
-  notify(user: UserProfile, event: AlertEvent): void {
+  notify(user: UserDisplay, event: AlertEvent): void {
     const prefix = `[${user.name}]`;
     const offer = event.offer;
 
@@ -22,11 +22,11 @@ export class ConsoleNotifier {
     }
   }
 
-  info(user: UserProfile, message: string): void {
+  info(user: UserDisplay, message: string): void {
     console.log(`[${user.name}] ${message}`);
   }
 
-  error(user: UserProfile, error: unknown): void {
+  error(user: UserDisplay, error: unknown): void {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[${user.name}] Error: ${message}`);
   }

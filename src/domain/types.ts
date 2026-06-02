@@ -9,6 +9,11 @@ export type UserProfile = {
   watchIntervalMinutes: number | null;
 };
 
+export type UserDisplay = {
+  id: number;
+  name: string;
+};
+
 export type Restaurant = {
   id: number;
   provider: Provider;

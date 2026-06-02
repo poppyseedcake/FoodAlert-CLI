@@ -2,6 +2,9 @@ import type { OfferInput, UserProfile } from '../domain/types.js';
 import { mapFoodsiOffer } from './mapFoodsiOffer.js';
 import type { FoodsiApiResponse } from './foodsiTypes.js';
 
+// Spoofed Android client headers — Foodsi's public API requires them, but the values
+// must be updated when the official Android app bumps its version. If the API rejects
+// the request with 401, check this first.
 const FOODSI_AUTH_URL = 'https://api.foodsi.pl/api/v2/auth/sign_in';
 const FOODSI_API_BASE = 'https://api.foodsi.pl/api/v3/user/offers';
 

@@ -3,6 +3,7 @@ import type { Restaurant, UserProfile } from '../domain/types.js';
 import { closeDatabase, initializeDatabase } from '../db/client.js';
 import {
   createUser,
+  deleteUser,
   getDefaultWatchIntervalMinutes,
   listUsers,
   setDefaultWatchIntervalMinutes,
@@ -32,6 +33,7 @@ type MainAction =
   | 'watch-user'
   | 'watch-all'
   | 'stop-watchers'
+  | 'status'
   | 'offers'
   | 'restaurants'
   | 'settings'
@@ -66,6 +68,7 @@ async function usersMenu(): Promise<void> {
       choices: [
         { name: 'Add user', value: 'add-user' },
         { name: 'List users', value: 'list-users' },
+        { name: 'Delete user', value: 'delete-user' },
         { name: 'Back', value: 'back' },
       ],
     });
@@ -75,6 +78,17 @@ async function usersMenu(): Promise<void> {
     if (action === 'add-user') {
       const user = await createUser(await promptNewUser());
       console.log(`Created user ${user.name}.`);
+    } else if (action === 'delete-user') {
+      const user = await selectUser(await listUsers());
+      if (!user) continue;
+      const confirmed = await confirm({
+        message: `Delete user "${user.name}"? All favorites, ignored lists, and offer states will be removed.`,
+        default: false,
+      });
+      if (!confirmed) continue;
+      scheduler.forgetUser(user.id);
+      await deleteUser(user.id);
+      console.log(`Deleted user ${user.name}.`);
     } else {
       const users = await listUsers();
       for (const user of users) {
@@ -129,7 +143,7 @@ async function settingsMenu(): Promise<void> {
   }
 }
 
-async function chooseRestaurantSource(userId: number): Promise<Restaurant[] | null> {
+async function pickRestaurantsForPicker(userId: number): Promise<Restaurant[] | null> {
   const source = await select<RestaurantSource>({
     message: 'Restaurant source',
     choices: [
@@ -190,7 +204,7 @@ async function listPickerMenu(user: UserProfile, kind: ListKind): Promise<void> 
           ? await listFavoriteRestaurantIds(user.id)
           : await listIgnoredRestaurantIds(user.id),
       );
-      const source = await chooseRestaurantSource(user.id);
+      const source = await pickRestaurantsForPicker(user.id);
       if (source === null) continue;
 
       const candidates = source.filter((restaurant) => !existingIds.has(restaurant.id));
@@ -309,6 +323,21 @@ async function watchUser(): Promise<void> {
   await scheduler.startForUser(user);
 }
 
+function printStatus(): void {
+  const entries = scheduler.getStatus();
+  if (entries.length === 0) {
+    console.log('No users registered.');
+    return;
+  }
+  for (const entry of entries) {
+    const state = entry.watching ? 'watching' : 'idle';
+    const next = entry.nextRunAt
+      ? `next check at ${entry.nextRunAt.toLocaleString('pl-PL')}`
+      : 'no scheduled check';
+    console.log(`${entry.userId}. ${entry.name} [${state}] — ${next}`);
+  }
+}
+
 async function main(): Promise<void> {
   await initializeDatabase();
   const defaultInterval = await getDefaultWatchIntervalMinutes();
@@ -323,6 +352,7 @@ async function main(): Promise<void> {
         { name: 'Watch one user', value: 'watch-user' },
         { name: 'Watch all users', value: 'watch-all' },
         { name: 'Stop watchers', value: 'stop-watchers' },
+        { name: 'Status', value: 'status' },
         { name: 'Offers', value: 'offers' },
         { name: 'Restaurants', value: 'restaurants' },
         { name: 'Settings', value: 'settings' },
@@ -350,6 +380,9 @@ async function main(): Promise<void> {
       case 'stop-watchers':
         scheduler.stop();
         console.log('Watchers stopped.');
+        break;
+      case 'status':
+        printStatus();
         break;
       case 'offers':
         await offersMenu();

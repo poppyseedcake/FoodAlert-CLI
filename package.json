@@ -5,7 +5,10 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "test": "npx tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npx tsc --noEmit",
+    "verify": "npm run typecheck && npm test",
     "build": "npx tsc",
     "start": "node dist/index.js",
     "dev": "npx tsc && node dist/index.js",
@@ -27,7 +30,8 @@
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.9.1",
     "drizzle-kit": "^0.31.10",
-    "typescript": "^6.0.3"
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.8"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.5.1",

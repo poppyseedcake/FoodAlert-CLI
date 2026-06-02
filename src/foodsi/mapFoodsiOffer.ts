@@ -20,11 +20,17 @@ function parseNumber(value: number | string | undefined): number | null {
 
 export function mapFoodsiOffer(item: FoodsiApiItem): OfferInput | null {
   const attributes = item.attributes;
-  const restaurantExternalId = String(attributes.venue_id ?? attributes.venue_name ?? null);
+  const venueId = attributes.venue_id;
+  const venueName = attributes.venue_name;
 
-  if (!restaurantExternalId || restaurantExternalId === 'null') {
+  if (venueId == null && (venueName == null || venueName.trim() === '')) {
     return null;
   }
+
+  const restaurantExternalId =
+    venueId != null
+      ? String(venueId)
+      : `${venueName!.trim()}|${(attributes.venue_address ?? '').trim()}`;
 
   return {
     provider: 'foodsi',

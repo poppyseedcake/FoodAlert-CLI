@@ -1,7 +1,11 @@
-import { and, eq, gt, inArray } from 'drizzle-orm';
+import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import { db } from '../db/client.js';
 import { offers, restaurants, userOfferStates } from '../db/schema.js';
 import type { Offer, OfferInput, Provider } from '../domain/types.js';
+import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
+import * as schema from '../db/schema.js';
+
+type DbOrTx = BetterSQLite3Database<typeof schema>;
 
 type OfferRow = typeof offers.$inferSelect;
 
@@ -23,6 +27,10 @@ export function toOffer(row: OfferRow, restaurantExternalId: string, restaurantN
     pickupTo: row.pickupTo ? new Date(row.pickupTo) : null,
     distanceKm: row.distanceKm,
   };
+}
+
+export function offerQuantityKey(offer: Pick<OfferInput, 'provider' | 'externalId'>): string {
+  return `${offer.provider}:${offer.externalId}`;
 }
 
 export async function findUserOfferQuantities(userId: number, offerRefs: Pick<OfferInput, 'provider' | 'externalId'>[]): Promise<Map<string, { quantity: number; existed: boolean }>> {
@@ -52,8 +60,72 @@ export async function findUserOfferQuantities(userId: number, offerRefs: Pick<Of
   return new Map(rows.flat().map((row) => [`${row.provider}:${row.externalId}`, { quantity: row.currentQuantity, existed: true }]));
 }
 
-export function offerQuantityKey(offer: Pick<OfferInput, 'provider' | 'externalId'>): string {
-  return `${offer.provider}:${offer.externalId}`;
+export type UserOfferStateRow = {
+  offerId: number;
+  provider: Provider;
+  externalId: string;
+  currentQuantity: number;
+};
+
+export async function listUserOfferStates(userId: number): Promise<UserOfferStateRow[]> {
+  const rows = await db
+    .select({
+      offerId: userOfferStates.offerId,
+      provider: offers.provider,
+      externalId: offers.externalId,
+      currentQuantity: userOfferStates.currentQuantity,
+    })
+    .from(userOfferStates)
+    .innerJoin(offers, eq(userOfferStates.offerId, offers.id))
+    .where(eq(userOfferStates.userId, userId));
+
+  return rows.map((row) => ({
+    offerId: row.offerId,
+    provider: row.provider as Provider,
+    externalId: row.externalId,
+    currentQuantity: row.currentQuantity,
+  }));
+}
+
+export type OfferWithRestaurant = OfferInput & { offerId: number; restaurantId: number };
+
+export async function getOffersDetailsByIds(offerIds: number[]): Promise<OfferWithRestaurant[]> {
+  if (offerIds.length === 0) return [];
+
+  const rows = await db
+    .select({
+      offer: offers,
+      restaurant: restaurants,
+    })
+    .from(offers)
+    .innerJoin(restaurants, eq(offers.restaurantId, restaurants.id))
+    .where(inArray(offers.id, offerIds));
+
+  return rows.map((row) => ({
+    offerId: row.offer.id,
+    restaurantId: row.restaurant.id,
+    provider: row.offer.provider as Provider,
+    externalId: row.offer.externalId,
+    restaurantExternalId: row.restaurant.externalId,
+    restaurantName: row.restaurant.name,
+    restaurantLogoUrl: row.restaurant.logoUrl,
+    restaurantAddress: row.restaurant.address,
+    name: row.offer.name,
+    description: row.offer.description,
+    quantity: row.offer.currentQuantity,
+    unitPrice: row.offer.unitPrice,
+    originalPrice: row.offer.originalPrice,
+    pickupFrom: row.offer.pickupFrom ? new Date(row.offer.pickupFrom) : null,
+    pickupTo: row.offer.pickupTo ? new Date(row.offer.pickupTo) : null,
+    distanceKm: row.offer.distanceKm,
+  }));
+}
+
+export async function deleteUserOfferStates(userId: number, offerIds: number[]): Promise<void> {
+  if (offerIds.length === 0) return;
+  await db
+    .delete(userOfferStates)
+    .where(and(eq(userOfferStates.userId, userId), inArray(userOfferStates.offerId, offerIds)));
 }
 
 export async function upsertOffer(input: OfferInput, restaurantId: number): Promise<number> {
@@ -111,6 +183,75 @@ export async function upsertUserOfferState(userId: number, offerId: number, curr
       target: [userOfferStates.userId, userOfferStates.offerId],
       set: { currentQuantity, lastSeenAt: now },
     });
+}
+
+export function upsertOffersBatch(
+  executor: DbOrTx,
+  inputs: Array<{ offer: OfferInput; restaurantId: number }>,
+): Map<string, number> {
+  const result = new Map<string, number>();
+  if (inputs.length === 0) return result;
+
+  const now = new Date().toISOString();
+  const rows = executor
+    .insert(offers)
+    .values(
+      inputs.map(({ offer, restaurantId }) => ({
+        provider: offer.provider,
+        externalId: offer.externalId,
+        restaurantId,
+        name: offer.name,
+        description: offer.description,
+        currentQuantity: offer.quantity,
+        unitPrice: offer.unitPrice,
+        originalPrice: offer.originalPrice,
+        pickupFrom: offer.pickupFrom?.toISOString() ?? null,
+        pickupTo: offer.pickupTo?.toISOString() ?? null,
+        distanceKm: offer.distanceKm,
+        lastSeenAt: now,
+        createdAt: now,
+        updatedAt: now,
+      })),
+    )
+    .onConflictDoUpdate({
+      target: [offers.provider, offers.externalId],
+      set: {
+        restaurantId: sql.raw(`excluded.${offers.restaurantId.name}`),
+        name: sql.raw(`excluded.${offers.name.name}`),
+        description: sql.raw(`excluded.${offers.description.name}`),
+        currentQuantity: sql.raw(`excluded.${offers.currentQuantity.name}`),
+        unitPrice: sql.raw(`excluded.${offers.unitPrice.name}`),
+        originalPrice: sql.raw(`excluded.${offers.originalPrice.name}`),
+        pickupFrom: sql.raw(`excluded.${offers.pickupFrom.name}`),
+        pickupTo: sql.raw(`excluded.${offers.pickupTo.name}`),
+        distanceKm: sql.raw(`excluded.${offers.distanceKm.name}`),
+        lastSeenAt: now,
+        updatedAt: now,
+      },
+    })
+    .returning({ provider: offers.provider, externalId: offers.externalId, id: offers.id })
+    .all();
+
+  for (const row of rows) {
+    result.set(`${row.provider}:${row.externalId}`, row.id);
+  }
+  return result;
+}
+
+export function upsertUserOfferStatesBatch(
+  executor: DbOrTx,
+  entries: Array<{ userId: number; offerId: number; currentQuantity: number }>,
+): void {
+  if (entries.length === 0) return;
+  const now = new Date().toISOString();
+  executor
+    .insert(userOfferStates)
+    .values(entries.map((e) => ({ ...e, lastSeenAt: now })))
+    .onConflictDoUpdate({
+      target: [userOfferStates.userId, userOfferStates.offerId],
+      set: { currentQuantity: sql.raw(`excluded.${userOfferStates.currentQuantity.name}`), lastSeenAt: now },
+    })
+    .run();
 }
 
 export async function clearCurrentOffersForUser(userId: number): Promise<void> {

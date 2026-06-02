@@ -1,8 +1,9 @@
 import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { DEFAULT_WATCH_INTERVAL_MINUTES } from '../domain/constants.js';
 
 export const appSettings = sqliteTable('app_settings', {
   id: integer('id').primaryKey(),
-  defaultWatchIntervalMinutes: integer('default_watch_interval_minutes').notNull().default(5),
+  defaultWatchIntervalMinutes: integer('default_watch_interval_minutes').notNull().default(DEFAULT_WATCH_INTERVAL_MINUTES),
 });
 
 export const users = sqliteTable('users', {
