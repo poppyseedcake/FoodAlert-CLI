@@ -1,24 +1,23 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import Database from 'better-sqlite3';
+import { closeDatabase, openDatabaseSession, type DatabaseSession } from '../db/client.js';
 import type { OfferInput } from '../domain/types.js';
+import { recordOfferSnapshot } from './offerSnapshot.js';
 
 let tempDir: string;
-let dbPath: string;
+let session: DatabaseSession;
 
-beforeEach(() => {
+beforeEach(async () => {
   tempDir = mkdtempSync(join(tmpdir(), 'foodalert-test-'));
-  dbPath = join(tempDir, 'test.sqlite');
-  process.env.FOODALERT_DB_PATH = dbPath;
-  vi.resetModules();
+  session = await openDatabaseSession({ path: join(tempDir, 'test.sqlite') });
 });
 
 afterEach(() => {
+  closeDatabase();
   rmSync(tempDir, { recursive: true, force: true });
-  delete process.env.FOODALERT_DB_PATH;
-  vi.resetModules();
 });
 
 function makeOffer(overrides: Partial<OfferInput> = {}): OfferInput {
@@ -51,11 +50,7 @@ function insertUser(sqlite: Database.Database): void {
 
 describe('recordOfferSnapshot', () => {
   it('persists fetched offers and returns current offer change facts', async () => {
-    const { initializeDatabase } = await import('../db/client.js');
-    const { recordOfferSnapshot } = await import('./offerSnapshot.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     insertUser(sqlite);
 
     const offers = [
@@ -80,16 +75,10 @@ describe('recordOfferSnapshot', () => {
       ]),
     );
     expect(changeSet.disappearedOffers).toHaveLength(0);
-
-    sqlite.close();
   });
 
   it('returns previous quantity facts when an existing offer changes', async () => {
-    const { initializeDatabase } = await import('../db/client.js');
-    const { recordOfferSnapshot } = await import('./offerSnapshot.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     insertUser(sqlite);
 
     await recordOfferSnapshot(1, [makeOffer({ externalId: 'o1', restaurantExternalId: 'r1', quantity: 5 })]);
@@ -103,16 +92,10 @@ describe('recordOfferSnapshot', () => {
       }),
     ]);
     expect(sqlite.prepare('SELECT current_quantity FROM user_offer_states').get()).toMatchObject({ current_quantity: 1 });
-
-    sqlite.close();
   });
 
   it('returns disappeared offer facts and removes vanished user offer states', async () => {
-    const { initializeDatabase } = await import('../db/client.js');
-    const { recordOfferSnapshot } = await import('./offerSnapshot.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     insertUser(sqlite);
 
     await recordOfferSnapshot(1, [
@@ -137,16 +120,10 @@ describe('recordOfferSnapshot', () => {
       )
       .get('o2');
     expect(removedState).toBeUndefined();
-
-    sqlite.close();
   });
 
   it('rolls back the snapshot transaction when one fetched offer cannot be persisted', async () => {
-    const { initializeDatabase } = await import('../db/client.js');
-    const { recordOfferSnapshot } = await import('./offerSnapshot.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     insertUser(sqlite);
 
     const invalidOffer = {
@@ -164,7 +141,5 @@ describe('recordOfferSnapshot', () => {
     expect(sqlite.prepare('SELECT * FROM restaurants').all()).toHaveLength(0);
     expect(sqlite.prepare('SELECT * FROM offers').all()).toHaveLength(0);
     expect(sqlite.prepare('SELECT * FROM user_offer_states').all()).toHaveLength(0);
-
-    sqlite.close();
   });
 });

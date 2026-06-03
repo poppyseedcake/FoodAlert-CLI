@@ -1,5 +1,5 @@
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
-import { db } from '../db/client.js';
+import { getDb } from '../db/client.js';
 import { offers, restaurants, userFavoriteRestaurants, userIgnoredRestaurants, userOfferStates } from '../db/schema.js';
 import type { OfferInput, Provider, Restaurant, RestaurantInput } from '../domain/types.js';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
@@ -21,6 +21,7 @@ export function toRestaurant(row: RestaurantRow): Restaurant {
 }
 
 export async function upsertRestaurant(input: RestaurantInput): Promise<number> {
+  const db = getDb();
   const now = new Date().toISOString();
   const result = await db
     .insert(restaurants)
@@ -93,6 +94,7 @@ export function upsertRestaurantsBatch(executor: DbOrTx, inputs: RestaurantInput
 }
 
 export async function listRestaurantsFromCurrentOffers(userId: number): Promise<Restaurant[]> {
+  const db = getDb();
   const rows = await db
     .select({ restaurant: restaurants })
     .from(userOfferStates)
@@ -106,17 +108,20 @@ export async function listRestaurantsFromCurrentOffers(userId: number): Promise<
 }
 
 export async function listRecentlySeenRestaurants(): Promise<Restaurant[]> {
+  const db = getDb();
   const rows = await db.select().from(restaurants).orderBy(restaurants.name);
   return rows.map(toRestaurant);
 }
 
 export async function getRestaurantsByIds(ids: number[]): Promise<Restaurant[]> {
   if (ids.length === 0) return [];
+  const db = getDb();
   const rows = await db.select().from(restaurants).where(inArray(restaurants.id, ids)).orderBy(restaurants.name);
   return rows.map(toRestaurant);
 }
 
 export async function addFavoriteRestaurant(userId: number, restaurantId: number): Promise<void> {
+  const db = getDb();
   await db
     .insert(userFavoriteRestaurants)
     .values({ userId, restaurantId, createdAt: new Date().toISOString() })
@@ -125,6 +130,7 @@ export async function addFavoriteRestaurant(userId: number, restaurantId: number
 
 export async function addFavoriteRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
   if (restaurantIds.length === 0) return;
+  const db = getDb();
   const now = new Date().toISOString();
   await db
     .insert(userFavoriteRestaurants)
@@ -134,6 +140,7 @@ export async function addFavoriteRestaurants(userId: number, restaurantIds: numb
 
 export async function removeFavoriteRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
   if (restaurantIds.length === 0) return;
+  const db = getDb();
   await db
     .delete(userFavoriteRestaurants)
     .where(and(eq(userFavoriteRestaurants.userId, userId), inArray(userFavoriteRestaurants.restaurantId, restaurantIds)));
@@ -141,6 +148,7 @@ export async function removeFavoriteRestaurants(userId: number, restaurantIds: n
 
 export async function addIgnoredRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
   if (restaurantIds.length === 0) return;
+  const db = getDb();
   const now = new Date().toISOString();
   await db
     .insert(userIgnoredRestaurants)
@@ -150,17 +158,20 @@ export async function addIgnoredRestaurants(userId: number, restaurantIds: numbe
 
 export async function removeIgnoredRestaurants(userId: number, restaurantIds: number[]): Promise<void> {
   if (restaurantIds.length === 0) return;
+  const db = getDb();
   await db
     .delete(userIgnoredRestaurants)
     .where(and(eq(userIgnoredRestaurants.userId, userId), inArray(userIgnoredRestaurants.restaurantId, restaurantIds)));
 }
 
 export async function listFavoriteRestaurantIds(userId: number): Promise<number[]> {
+  const db = getDb();
   const rows = await db.select().from(userFavoriteRestaurants).where(eq(userFavoriteRestaurants.userId, userId));
   return rows.map((row) => row.restaurantId);
 }
 
 export async function listIgnoredRestaurantIds(userId: number): Promise<number[]> {
+  const db = getDb();
   const rows = await db.select().from(userIgnoredRestaurants).where(eq(userIgnoredRestaurants.userId, userId));
   return rows.map((row) => row.restaurantId);
 }

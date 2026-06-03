@@ -1,5 +1,5 @@
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
-import { db } from '../db/client.js';
+import { getDb } from '../db/client.js';
 import { offers, restaurants, userOfferStates } from '../db/schema.js';
 import type { Offer, OfferInput, Provider } from '../domain/types.js';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
@@ -35,6 +35,7 @@ export function offerQuantityKey(offer: Pick<OfferInput, 'provider' | 'externalI
 
 export async function findUserOfferQuantities(userId: number, offerRefs: Pick<OfferInput, 'provider' | 'externalId'>[]): Promise<Map<string, { quantity: number; existed: boolean }>> {
   if (offerRefs.length === 0) return new Map();
+  const db = getDb();
 
   const externalIdsByProvider = new Map<Provider, Set<string>>();
   for (const offer of offerRefs) {
@@ -68,6 +69,7 @@ export type UserOfferStateRow = {
 };
 
 export async function listUserOfferStates(userId: number): Promise<UserOfferStateRow[]> {
+  const db = getDb();
   const rows = await db
     .select({
       offerId: userOfferStates.offerId,
@@ -91,6 +93,7 @@ export type OfferWithRestaurant = OfferInput & { offerId: number; restaurantId: 
 
 export async function getOffersDetailsByIds(offerIds: number[]): Promise<OfferWithRestaurant[]> {
   if (offerIds.length === 0) return [];
+  const db = getDb();
 
   const rows = await db
     .select({
@@ -123,12 +126,14 @@ export async function getOffersDetailsByIds(offerIds: number[]): Promise<OfferWi
 
 export async function deleteUserOfferStates(userId: number, offerIds: number[]): Promise<void> {
   if (offerIds.length === 0) return;
+  const db = getDb();
   await db
     .delete(userOfferStates)
     .where(and(eq(userOfferStates.userId, userId), inArray(userOfferStates.offerId, offerIds)));
 }
 
 export async function upsertOffer(input: OfferInput, restaurantId: number): Promise<number> {
+  const db = getDb();
   const now = new Date().toISOString();
   const result = await db
     .insert(offers)
@@ -175,6 +180,7 @@ export async function upsertOffer(input: OfferInput, restaurantId: number): Prom
 }
 
 export async function upsertUserOfferState(userId: number, offerId: number, currentQuantity: number): Promise<void> {
+  const db = getDb();
   const now = new Date().toISOString();
   await db
     .insert(userOfferStates)
@@ -255,10 +261,12 @@ export function upsertUserOfferStatesBatch(
 }
 
 export async function clearCurrentOffersForUser(userId: number): Promise<void> {
+  const db = getDb();
   await db.delete(userOfferStates).where(eq(userOfferStates.userId, userId));
 }
 
 export async function listCurrentOffersForUser(userId: number): Promise<Offer[]> {
+  const db = getDb();
   const rows = await db
     .select({
       offer: offers,

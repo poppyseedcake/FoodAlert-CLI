@@ -11,3 +11,7 @@ _Avoid_: Offer intake, fetched offer batch
 **Alert Derivation**:
 The rules that turn an Offer Snapshot change set and a user's restaurant notification policy into Alert Events. Alert Derivation owns new offer, re-stocked, stock-change, sold-out, favorite-only, and ignored-restaurant decisions.
 _Avoid_: Offer diffing, watcher alert rules
+
+**Database Session**:
+The runtime database lifecycle for one active SQLite database. A Database Session owns path selection, connection pragmas, migration, default settings seed, the active Drizzle database handle, and teardown.
+_Avoid_: Database client import side effect, test DB env reset

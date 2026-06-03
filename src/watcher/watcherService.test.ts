@@ -1,24 +1,23 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import Database from 'better-sqlite3';
+import { closeDatabase, openDatabaseSession, type DatabaseSession } from '../db/client.js';
 import type { OfferInput, UserProfile } from '../domain/types.js';
+import { deleteUser } from '../users/userRepository.js';
+import { WatcherService } from './watcherService.js';
 
 let tempDir: string;
-let dbPath: string;
+let session: DatabaseSession;
 
-beforeEach(() => {
+beforeEach(async () => {
   tempDir = mkdtempSync(join(tmpdir(), 'foodalert-test-'));
-  dbPath = join(tempDir, 'test.sqlite');
-  process.env.FOODALERT_DB_PATH = dbPath;
-  vi.resetModules();
+  session = await openDatabaseSession({ path: join(tempDir, 'test.sqlite') });
 });
 
 afterEach(() => {
+  closeDatabase();
   rmSync(tempDir, { recursive: true, force: true });
-  delete process.env.FOODALERT_DB_PATH;
-  vi.resetModules();
 });
 
 class MockFoodsiClient {
@@ -75,11 +74,7 @@ function makeUser(): UserProfile {
 
 describe('WatcherService.runOnce (sync transaction path)', () => {
   it('persists offers via batch upserts inside a sync transaction', async () => {
-    const { WatcherService } = await import('./watcherService.js');
-    const { initializeDatabase } = await import('../db/client.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     sqlite
       .prepare(
         'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -107,16 +102,10 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
     const newOfferEvents = notifier.events.filter((e) => (e.event as { type: string }).type === 'new-offer');
     expect(newOfferEvents).toHaveLength(3);
     expect(notifier.errorCalls).toHaveLength(0);
-
-    sqlite.close();
   });
 
   it('reuses one restaurant across multiple offers from the same venue', async () => {
-    const { WatcherService } = await import('./watcherService.js');
-    const { initializeDatabase } = await import('../db/client.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     sqlite
       .prepare(
         'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -135,15 +124,10 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
 
     const allRestaurants = sqlite.prepare('SELECT * FROM restaurants').all();
     expect(allRestaurants).toHaveLength(1);
-    sqlite.close();
   });
 
   it('updates existing offers and user states on subsequent batch upserts', async () => {
-    const { WatcherService } = await import('./watcherService.js');
-    const { initializeDatabase } = await import('../db/client.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     sqlite
       .prepare(
         'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -169,15 +153,10 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
 
     expect(offer).toMatchObject({ name: 'Updated name', current_quantity: 1 });
     expect(state).toMatchObject({ current_quantity: 1 });
-    sqlite.close();
   });
 
   it('notifies sold-out and removes user state when a previously seen offer disappears', async () => {
-    const { WatcherService } = await import('./watcherService.js');
-    const { initializeDatabase } = await import('../db/client.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     sqlite
       .prepare(
         'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -213,15 +192,10 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
       offer: { externalId: 'o2', restaurantExternalId: 'r2', quantity: 0 },
     });
     expect(removedState).toBeUndefined();
-    sqlite.close();
   });
 
   it('rolls back all fetched data when one batch insert fails', async () => {
-    const { WatcherService } = await import('./watcherService.js');
-    const { initializeDatabase } = await import('../db/client.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     sqlite
       .prepare(
         'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
@@ -246,15 +220,10 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
     expect(sqlite.prepare('SELECT * FROM restaurants').all()).toHaveLength(0);
     expect(sqlite.prepare('SELECT * FROM offers').all()).toHaveLength(0);
     expect(sqlite.prepare('SELECT * FROM user_offer_states').all()).toHaveLength(0);
-    sqlite.close();
   });
 
   it('deletes user-owned rows without relying on migration-level cascade', async () => {
-    const { deleteUser } = await import('../users/userRepository.js');
-    const { initializeDatabase } = await import('../db/client.js');
-
-    await initializeDatabase();
-    const sqlite = new Database(dbPath);
+    const sqlite = session.sqlite;
     const now = new Date().toISOString();
     sqlite
       .prepare(
@@ -281,6 +250,5 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
     expect(sqlite.prepare('SELECT * FROM user_offer_states WHERE user_id = ?').get(1)).toBeUndefined();
     expect(sqlite.prepare('SELECT * FROM user_favorite_restaurants WHERE user_id = ?').get(1)).toBeUndefined();
     expect(sqlite.prepare('SELECT * FROM user_ignored_restaurants WHERE user_id = ?').get(1)).toBeUndefined();
-    sqlite.close();
   });
 });

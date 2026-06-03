@@ -1,5 +1,5 @@
 import { and, eq, inArray } from 'drizzle-orm';
-import { db } from '../db/client.js';
+import { getDb } from '../db/client.js';
 import { userOfferStates } from '../db/schema.js';
 import type { OfferInput } from '../domain/types.js';
 import {
@@ -35,6 +35,7 @@ function restaurantKey(offer: Pick<OfferInput, 'provider' | 'restaurantExternalI
 }
 
 export async function recordOfferSnapshot(userId: number, fetchedOffers: OfferInput[]): Promise<OfferSnapshotChangeSet> {
+  const db = getDb();
   const previousQuantities = await findUserOfferQuantities(userId, fetchedOffers);
   const previousStates = await listUserOfferStates(userId);
   const currentKeys = new Set(fetchedOffers.map(offerQuantityKey));
