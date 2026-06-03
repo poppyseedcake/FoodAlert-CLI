@@ -1,6 +1,7 @@
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { offers, restaurants, userOfferStates } from '../db/schema.js';
+import { groupExternalIdsByProvider, offerIdentityKey } from '../domain/providerIdentity.js';
 import type { Offer, OfferInput, Provider } from '../domain/types.js';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../db/schema.js';
@@ -30,19 +31,14 @@ export function toOffer(row: OfferRow, restaurantExternalId: string, restaurantN
 }
 
 export function offerQuantityKey(offer: Pick<OfferInput, 'provider' | 'externalId'>): string {
-  return `${offer.provider}:${offer.externalId}`;
+  return offerIdentityKey(offer);
 }
 
 export async function findUserOfferQuantities(userId: number, offerRefs: Pick<OfferInput, 'provider' | 'externalId'>[]): Promise<Map<string, { quantity: number; existed: boolean }>> {
   if (offerRefs.length === 0) return new Map();
   const db = getDb();
 
-  const externalIdsByProvider = new Map<Provider, Set<string>>();
-  for (const offer of offerRefs) {
-    const ids = externalIdsByProvider.get(offer.provider) ?? new Set<string>();
-    ids.add(offer.externalId);
-    externalIdsByProvider.set(offer.provider, ids);
-  }
+  const externalIdsByProvider = groupExternalIdsByProvider(offerRefs);
 
   const rows = await Promise.all(
     Array.from(externalIdsByProvider.entries()).map(([provider, externalIds]) =>
@@ -58,7 +54,7 @@ export async function findUserOfferQuantities(userId: number, offerRefs: Pick<Of
     ),
   );
 
-  return new Map(rows.flat().map((row) => [`${row.provider}:${row.externalId}`, { quantity: row.currentQuantity, existed: true }]));
+  return new Map(rows.flat().map((row) => [offerIdentityKey({ provider: row.provider as Provider, externalId: row.externalId }), { quantity: row.currentQuantity, existed: true }]));
 }
 
 export type UserOfferStateRow = {
@@ -173,7 +169,7 @@ export async function upsertOffer(input: OfferInput, restaurantId: number): Prom
 
   const id = result[0]?.id;
   if (!id) {
-    throw new Error(`Offer not found after upsert: ${input.provider}:${input.externalId}`);
+    throw new Error(`Offer not found after upsert: ${offerIdentityKey(input)}`);
   }
 
   return id;
@@ -239,7 +235,7 @@ export function upsertOffersBatch(
     .all();
 
   for (const row of rows) {
-    result.set(`${row.provider}:${row.externalId}`, row.id);
+    result.set(offerIdentityKey({ provider: row.provider as Provider, externalId: row.externalId }), row.id);
   }
   return result;
 }

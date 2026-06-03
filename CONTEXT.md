@@ -15,3 +15,11 @@ _Avoid_: Offer diffing, watcher alert rules
 **Database Session**:
 The runtime database lifecycle for one active SQLite database. A Database Session owns path selection, connection pragmas, migration, default settings seed, the active Drizzle database handle, and teardown.
 _Avoid_: Database client import side effect, test DB env reset
+
+**Provider Identity**:
+The stable provider-scoped identity for an external restaurant or offer. Provider Identity owns equality keys, display labels, and grouping by provider plus external id.
+_Avoid_: Ad hoc `provider:externalId` strings
+
+**CLI Workflows**:
+User-facing command flows behind the prompt adapter. CLI Workflows own profile deletion cleanup and restaurant list mutations for favorites and ignored restaurants.
+_Avoid_: Prompt loop business rules

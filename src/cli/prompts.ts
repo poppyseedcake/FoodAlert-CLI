@@ -1,5 +1,6 @@
 import { checkbox, input, number, password, select } from '@inquirer/prompts';
 import { DEFAULT_WATCH_INTERVAL_MINUTES, MIN_WATCH_INTERVAL_MINUTES } from '../domain/constants.js';
+import { providerIdentityLabel } from '../domain/providerIdentity.js';
 import type { Restaurant, UserProfile } from '../domain/types.js';
 
 export async function selectUser(users: UserProfile[]): Promise<UserProfile | null> {
@@ -30,7 +31,7 @@ export async function selectRestaurant(restaurants: Restaurant[]): Promise<Resta
     message: 'Choose restaurant',
     choices: [
       ...restaurants.map((restaurant) => ({
-        name: `${restaurant.name} [${restaurant.provider}:${restaurant.externalId}]`,
+        name: `${restaurant.name} ${providerIdentityLabel(restaurant)}`,
         value: restaurant.id,
       })),
       { name: 'Back', value: 0 },
@@ -48,7 +49,7 @@ export async function selectRestaurants(restaurants: Restaurant[], message: stri
     message,
     pageSize: 20,
     choices: restaurants.map((restaurant) => ({
-      name: `${restaurant.name} [${restaurant.provider}:${restaurant.externalId}]`,
+      name: `${restaurant.name} ${providerIdentityLabel(restaurant)}`,
       value: restaurant.id,
     })),
   });

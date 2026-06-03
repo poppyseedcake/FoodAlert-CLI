@@ -1,31 +1,21 @@
 import { confirm, select } from '@inquirer/prompts';
 import type { Restaurant, UserProfile } from '../domain/types.js';
+import { providerIdentityLabel } from '../domain/providerIdentity.js';
 import { closeDatabase, initializeDatabase } from '../db/client.js';
 import {
   createUser,
-  deleteUser,
   getDefaultWatchIntervalMinutes,
   listUsers,
   setDefaultWatchIntervalMinutes,
   setNotifyOnlyFavorites,
   setUserWatchInterval,
 } from '../users/userRepository.js';
-import {
-  addFavoriteRestaurants,
-  addIgnoredRestaurants,
-  getRestaurantsByIds,
-  listFavoriteRestaurantIds,
-  listIgnoredRestaurantIds,
-  listRecentlySeenRestaurants,
-  listRestaurantsFromCurrentOffers,
-  removeFavoriteRestaurants,
-  removeIgnoredRestaurants,
-} from '../restaurants/restaurantRepository.js';
 import { clearCurrentOffersForUser, listCurrentOffersForUser } from '../offers/offerRepository.js';
 import { SchedulerService } from '../watcher/schedulerService.js';
 import { WatcherService } from '../watcher/watcherService.js';
 import { formatPickup, formatPrice } from '../utils/format.js';
 import { promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
+import { cliWorkflows, restaurantListLabel, type RestaurantListKind, type RestaurantSource } from './workflows.js';
 
 type MainAction =
   | 'users'
@@ -86,8 +76,7 @@ async function usersMenu(): Promise<void> {
         default: false,
       });
       if (!confirmed) continue;
-      scheduler.forgetUser(user.id);
-      await deleteUser(user.id);
+      await cliWorkflows.deleteUserProfile(user.id, scheduler);
       console.log(`Deleted user ${user.name}.`);
     } else {
       const users = await listUsers();
@@ -143,8 +132,8 @@ async function settingsMenu(): Promise<void> {
   }
 }
 
-async function pickRestaurantsForPicker(userId: number): Promise<Restaurant[] | null> {
-  const source = await select<RestaurantSource>({
+async function pickRestaurantSource(): Promise<RestaurantSource | null> {
+  const source = await select<RestaurantPickerSource>({
     message: 'Restaurant source',
     choices: [
       { name: 'Current offers', value: 'current' },
@@ -154,23 +143,21 @@ async function pickRestaurantsForPicker(userId: number): Promise<Restaurant[] | 
   });
 
   if (source === 'back') return null;
-  return source === 'current' ? listRestaurantsFromCurrentOffers(userId) : listRecentlySeenRestaurants();
+  return source;
 }
 
-type RestaurantSource = 'current' | 'recent' | 'back';
-type ListKind = 'favorites' | 'ignored';
+type RestaurantPickerSource = RestaurantSource | 'back';
 type ListAction = 'show' | 'add' | 'remove' | 'back';
-type ListPickerAction = ListKind | 'back';
+type ListPickerAction = RestaurantListKind | 'back';
 
 function printRestaurants(restaurants: Restaurant[]): void {
   for (const restaurant of restaurants) {
-    console.log(`${restaurant.id}. ${restaurant.name} [${restaurant.provider}:${restaurant.externalId}]`);
+    console.log(`${restaurant.id}. ${restaurant.name} ${providerIdentityLabel(restaurant)}`);
   }
 }
 
-async function listPickerMenu(user: UserProfile, kind: ListKind): Promise<void> {
-  const isFavorite = kind === 'favorites';
-  const label = isFavorite ? 'favorites' : 'ignored';
+async function listPickerMenu(user: UserProfile, kind: RestaurantListKind): Promise<void> {
+  const label = restaurantListLabel(kind);
 
   while (true) {
     const action = await select<ListAction>({
@@ -186,10 +173,7 @@ async function listPickerMenu(user: UserProfile, kind: ListKind): Promise<void> 
     if (action === 'back') return;
 
     if (action === 'show') {
-      const ids = isFavorite
-        ? await listFavoriteRestaurantIds(user.id)
-        : await listIgnoredRestaurantIds(user.id);
-      const restaurants = await getRestaurantsByIds(ids);
+      const restaurants = await cliWorkflows.listRestaurants(user.id, kind);
       if (restaurants.length === 0) {
         console.log(`No ${label} for ${user.name}.`);
       } else {
@@ -199,15 +183,10 @@ async function listPickerMenu(user: UserProfile, kind: ListKind): Promise<void> 
     }
 
     if (action === 'add') {
-      const existingIds = new Set(
-        isFavorite
-          ? await listFavoriteRestaurantIds(user.id)
-          : await listIgnoredRestaurantIds(user.id),
-      );
-      const source = await pickRestaurantsForPicker(user.id);
+      const source = await pickRestaurantSource();
       if (source === null) continue;
 
-      const candidates = source.filter((restaurant) => !existingIds.has(restaurant.id));
+      const candidates = await cliWorkflows.listAddableRestaurants(user.id, kind, source);
       if (candidates.length === 0) {
         console.log(`No new restaurants to add to ${label}.`);
         continue;
@@ -220,19 +199,12 @@ async function listPickerMenu(user: UserProfile, kind: ListKind): Promise<void> 
       }
 
       const ids = picked.map((restaurant) => restaurant.id);
-      if (isFavorite) {
-        await addFavoriteRestaurants(user.id, ids);
-      } else {
-        await addIgnoredRestaurants(user.id, ids);
-      }
+      await cliWorkflows.addRestaurants(user.id, kind, ids);
       console.log(`Added ${picked.length} restaurant(s) to ${label}.`);
       continue;
     }
 
-    const ids = isFavorite
-      ? await listFavoriteRestaurantIds(user.id)
-      : await listIgnoredRestaurantIds(user.id);
-    const restaurants = await getRestaurantsByIds(ids);
+    const restaurants = await cliWorkflows.listRestaurants(user.id, kind);
     if (restaurants.length === 0) {
       console.log(`No ${label} to remove for ${user.name}.`);
       continue;
@@ -245,11 +217,7 @@ async function listPickerMenu(user: UserProfile, kind: ListKind): Promise<void> 
     }
 
     const pickedIds = picked.map((restaurant) => restaurant.id);
-    if (isFavorite) {
-      await removeFavoriteRestaurants(user.id, pickedIds);
-    } else {
-      await removeIgnoredRestaurants(user.id, pickedIds);
-    }
+    await cliWorkflows.removeRestaurants(user.id, kind, pickedIds);
     console.log(`Removed ${picked.length} restaurant(s) from ${label}.`);
   }
 }

@@ -1,6 +1,7 @@
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { userOfferStates } from '../db/schema.js';
+import { restaurantIdentityKey, restaurantIdentityKeyFromOffer } from '../domain/providerIdentity.js';
 import type { OfferInput } from '../domain/types.js';
 import {
   findUserOfferQuantities,
@@ -29,10 +30,6 @@ export type OfferSnapshotChangeSet = {
   currentOffers: CurrentOfferChangeFact[];
   disappearedOffers: DisappearedOfferChangeFact[];
 };
-
-function restaurantKey(offer: Pick<OfferInput, 'provider' | 'restaurantExternalId'>): string {
-  return `${offer.provider}:${offer.restaurantExternalId}`;
-}
 
 export async function recordOfferSnapshot(userId: number, fetchedOffers: OfferInput[]): Promise<OfferSnapshotChangeSet> {
   const db = getDb();
@@ -76,7 +73,7 @@ export async function recordOfferSnapshot(userId: number, fetchedOffers: OfferIn
     const uniqueRestaurants = new Map<string, ReturnType<typeof restaurantFromOffer>>();
     for (const offer of fetchedOffers) {
       const restaurantInput = restaurantFromOffer(offer);
-      const key = `${restaurantInput.provider}:${restaurantInput.externalId}`;
+      const key = restaurantIdentityKey(restaurantInput);
       if (!uniqueRestaurants.has(key)) {
         uniqueRestaurants.set(key, restaurantInput);
       }
@@ -85,7 +82,7 @@ export async function recordOfferSnapshot(userId: number, fetchedOffers: OfferIn
     const restaurantIdByKey = upsertRestaurantsBatch(tx, Array.from(uniqueRestaurants.values()));
 
     const offerInserts = fetchedOffers.map((offer) => {
-      const restaurantId = restaurantIdByKey.get(restaurantKey(offer));
+      const restaurantId = restaurantIdByKey.get(restaurantIdentityKeyFromOffer(offer));
       if (restaurantId === undefined) {
         throw new Error(`Missing restaurantId for offer ${offerQuantityKey(offer)}`);
       }

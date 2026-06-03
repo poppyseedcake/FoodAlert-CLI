@@ -1,6 +1,7 @@
 import { and, eq, gt, inArray, sql } from 'drizzle-orm';
 import { getDb } from '../db/client.js';
 import { offers, restaurants, userFavoriteRestaurants, userIgnoredRestaurants, userOfferStates } from '../db/schema.js';
+import { restaurantIdentityKey } from '../domain/providerIdentity.js';
 import type { OfferInput, Provider, Restaurant, RestaurantInput } from '../domain/types.js';
 import type { BetterSQLite3Database } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../db/schema.js';
@@ -49,7 +50,7 @@ export async function upsertRestaurant(input: RestaurantInput): Promise<number> 
 
   const id = result[0]?.id;
   if (!id) {
-    throw new Error(`Restaurant not found after upsert: ${input.provider}:${input.externalId}`);
+    throw new Error(`Restaurant not found after upsert: ${restaurantIdentityKey(input)}`);
   }
 
   return id;
@@ -88,7 +89,7 @@ export function upsertRestaurantsBatch(executor: DbOrTx, inputs: RestaurantInput
     .all();
 
   for (const row of rows) {
-    result.set(`${row.provider}:${row.externalId}`, row.id);
+    result.set(restaurantIdentityKey({ provider: row.provider as Provider, externalId: row.externalId }), row.id);
   }
   return result;
 }
