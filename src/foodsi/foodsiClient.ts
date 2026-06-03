@@ -15,6 +15,48 @@ const FOODSI_HEADERS = {
 };
 const MAX_PAGES = 50;
 
+function readCause(error: unknown): unknown {
+  return error instanceof Error && 'cause' in error ? error.cause : undefined;
+}
+
+function readErrorField(error: unknown, field: 'code' | 'hostname'): string | undefined {
+  if (!error || typeof error !== 'object' || !(field in error)) {
+    return undefined;
+  }
+
+  const value = (error as Record<string, unknown>)[field];
+  return typeof value === 'string' ? value : undefined;
+}
+
+function explainFetchFailure(error: unknown, context: string): Error {
+  const cause = readCause(error);
+  const code = readErrorField(cause, 'code');
+  const hostname = readErrorField(cause, 'hostname') ?? 'api.foodsi.pl';
+
+  if (code === 'EAI_AGAIN') {
+    return new Error(
+      `Cannot reach Foodsi while ${context}: DNS lookup failed for ${hostname} (${code}). Check your internet connection, DNS, VPN, or try again in a moment.`,
+      { cause: error },
+    );
+  }
+
+  if (code) {
+    return new Error(`Cannot reach Foodsi while ${context}: network error ${code} for ${hostname}.`, { cause: error });
+  }
+
+  return new Error(`Cannot reach Foodsi while ${context}: ${error instanceof Error ? error.message : String(error)}`, {
+    cause: error,
+  });
+}
+
+async function fetchFoodsi(url: string, init: RequestInit, context: string): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    throw explainFetchFailure(error, context);
+  }
+}
+
 function getTimestamp(): string {
   return new Date().toISOString();
 }
@@ -28,11 +70,11 @@ function getAuthHeader(value: string | null, name: string): string {
 
 export class FoodsiClient {
   async fetchOffers(user: UserProfile): Promise<OfferInput[]> {
-    const authRes = await fetch(FOODSI_AUTH_URL, {
+    const authRes = await fetchFoodsi(FOODSI_AUTH_URL, {
       method: 'POST',
       headers: FOODSI_HEADERS,
       body: JSON.stringify({ email: user.foodsiEmail, password: user.foodsiPassword }),
-    });
+    }, `signing in for ${user.name}`);
 
     if (!authRes.ok) {
       throw new Error(`Foodsi auth failed for ${user.name}: ${authRes.status} ${authRes.statusText}`);
@@ -65,7 +107,7 @@ export class FoodsiClient {
         throw new Error(`Foodsi API pagination exceeded ${MAX_PAGES} pages for ${user.name}`);
       }
 
-      const res = await fetch(url, { headers: authHeaders });
+      const res = await fetchFoodsi(url, { headers: authHeaders }, `fetching offers for ${user.name}`);
 
       if (!res.ok) {
         throw new Error(`Foodsi API failed for ${user.name}: ${res.status} ${res.statusText}`);

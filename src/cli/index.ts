@@ -314,7 +314,13 @@ async function offersMenu(): Promise<void> {
 async function runOnce(): Promise<void> {
   const user = await selectUser(await listUsers());
   if (!user) return;
-  await new WatcherService().runOnce(user);
+
+  try {
+    await new WatcherService().runOnce(user);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[${user.name}] Error: ${message}`);
+  }
 }
 
 async function watchUser(): Promise<void> {
