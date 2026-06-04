@@ -1,0 +1,1601 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FoodAlert - raport architektury i przepływu danych</title>
+    <style>
+      :root {
+        --bg: #f5f6f2;
+        --surface: #ffffff;
+        --surface-2: #eef2ec;
+        --ink: #1d2527;
+        --muted: #5e696c;
+        --line: #d8ded7;
+        --green: #2f7d5c;
+        --green-soft: #dbece4;
+        --blue: #345d8a;
+        --blue-soft: #dce8f4;
+        --amber: #a66f2d;
+        --amber-soft: #f1e5d5;
+        --rose: #9a4450;
+        --rose-soft: #f1dfe2;
+        --violet: #5c527f;
+        --violet-soft: #e5e1ef;
+        --shadow: 0 14px 30px rgba(26, 36, 38, 0.08);
+        --radius: 8px;
+        --max: 1180px;
+        color-scheme: light;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: var(--bg);
+        color: var(--ink);
+        line-height: 1.55;
+      }
+
+      a {
+        color: var(--blue);
+        text-decoration-color: rgba(52, 93, 138, 0.35);
+        text-underline-offset: 3px;
+      }
+
+      a:hover {
+        color: #24496f;
+        text-decoration-color: currentColor;
+      }
+
+      code,
+      .mono {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }
+
+      .shell {
+        max-width: var(--max);
+        margin: 0 auto;
+        padding: 0 22px;
+      }
+
+      .top {
+        border-bottom: 1px solid var(--line);
+        background:
+          linear-gradient(90deg, rgba(47, 125, 92, 0.09), transparent 40%),
+          linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
+      }
+
+      .top-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 330px;
+        gap: 28px;
+        align-items: start;
+        min-height: 88vh;
+        padding-top: 42px;
+        padding-bottom: 34px;
+      }
+
+      .eyebrow {
+        color: var(--green);
+        font-weight: 800;
+        letter-spacing: 0;
+        text-transform: uppercase;
+        font-size: 0.78rem;
+      }
+
+      h1,
+      h2,
+      h3,
+      h4 {
+        line-height: 1.14;
+        letter-spacing: 0;
+        margin: 0;
+      }
+
+      h1 {
+        max-width: 900px;
+        margin-top: 12px;
+        font-size: clamp(2.2rem, 6vw, 4.9rem);
+      }
+
+      h2 {
+        font-size: clamp(1.75rem, 3vw, 2.55rem);
+      }
+
+      h3 {
+        font-size: 1.15rem;
+      }
+
+      h4 {
+        font-size: 0.96rem;
+      }
+
+      .lead {
+        max-width: 850px;
+        margin: 20px 0 0;
+        color: #354043;
+        font-size: 1.08rem;
+      }
+
+      .meta-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 26px;
+      }
+
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.72);
+        padding: 5px 10px;
+        border-radius: 999px;
+        color: #344042;
+        font-size: 0.88rem;
+        font-weight: 650;
+      }
+
+      .summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 30px;
+      }
+
+      .metric {
+        border: 1px solid var(--line);
+        background: var(--surface);
+        border-radius: var(--radius);
+        padding: 15px 14px;
+        box-shadow: var(--shadow);
+      }
+
+      .metric strong {
+        display: block;
+        font-size: 1.55rem;
+        line-height: 1;
+      }
+
+      .metric span {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .toc {
+        position: sticky;
+        top: 16px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: rgba(255, 255, 255, 0.86);
+        padding: 14px;
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(8px);
+      }
+
+      .toc h2 {
+        font-size: 0.95rem;
+        margin-bottom: 8px;
+      }
+
+      .toc a {
+        display: block;
+        padding: 7px 8px;
+        border-radius: 6px;
+        color: #293335;
+        text-decoration: none;
+        font-size: 0.9rem;
+      }
+
+      .toc a:hover {
+        background: var(--surface-2);
+      }
+
+      .band {
+        border-bottom: 1px solid var(--line);
+      }
+
+      .band .shell {
+        padding-top: 52px;
+        padding-bottom: 52px;
+      }
+
+      .band.white {
+        background: var(--surface);
+      }
+
+      .section-head {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(220px, 360px);
+        gap: 22px;
+        align-items: end;
+        margin-bottom: 28px;
+      }
+
+      .section-head p {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: 20px;
+      }
+
+      .three-col {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 18px;
+      }
+
+      .card p {
+        margin: 10px 0 0;
+        color: var(--muted);
+      }
+
+      .callout {
+        border-left: 4px solid var(--green);
+        background: var(--green-soft);
+        padding: 16px 18px;
+        border-radius: 0 var(--radius) var(--radius) 0;
+      }
+
+      .callout p {
+        margin: 0;
+      }
+
+      .stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .layer {
+        display: grid;
+        grid-template-columns: 150px minmax(0, 1fr);
+        gap: 14px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-left-width: 6px;
+        border-radius: var(--radius);
+        background: var(--surface);
+        padding: 14px;
+      }
+
+      .layer[data-tone="edge"] {
+        border-left-color: var(--blue);
+      }
+
+      .layer[data-tone="orchestration"] {
+        border-left-color: var(--amber);
+      }
+
+      .layer[data-tone="domain"] {
+        border-left-color: var(--green);
+      }
+
+      .layer[data-tone="persistence"] {
+        border-left-color: var(--violet);
+      }
+
+      .layer b {
+        font-size: 0.94rem;
+      }
+
+      .layer p {
+        margin: 4px 0 0;
+        color: var(--muted);
+        font-size: 0.92rem;
+      }
+
+      .file-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin-top: 8px;
+      }
+
+      .file-list a,
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: #fff;
+        padding: 4px 8px;
+        color: #2d393b;
+        text-decoration: none;
+        font-size: 0.78rem;
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }
+
+      .flow-tabs {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 16px;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .tab-button,
+      .filter-button {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--surface);
+        color: #303b3d;
+        min-height: 36px;
+        padding: 7px 12px;
+        cursor: pointer;
+      }
+
+      .tab-button[aria-selected="true"],
+      .filter-button.active {
+        background: var(--ink);
+        border-color: var(--ink);
+        color: #fff;
+      }
+
+      .flow-panel {
+        display: none;
+      }
+
+      .flow-panel.active {
+        display: block;
+      }
+
+      .timeline {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(130px, 1fr));
+        gap: 10px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+      }
+
+      .step {
+        position: relative;
+        min-height: 166px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #fff;
+        padding: 14px;
+      }
+
+      .step::after {
+        content: "->";
+        position: absolute;
+        top: 18px;
+        right: -10px;
+        color: var(--muted);
+        font-weight: 800;
+      }
+
+      .step:last-child::after {
+        content: "";
+      }
+
+      .step small {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--blue-soft);
+        color: var(--blue);
+        font-weight: 800;
+        margin-bottom: 12px;
+      }
+
+      .step p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .module-toolbar {
+        display: grid;
+        grid-template-columns: minmax(200px, 1fr) auto;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .search {
+        width: 100%;
+        min-height: 42px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        padding: 9px 12px;
+        font: inherit;
+        background: #fff;
+      }
+
+      .filters {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-end;
+      }
+
+      .module-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .module-card {
+        border: 1px solid var(--line);
+        border-top: 5px solid var(--green);
+        border-radius: var(--radius);
+        background: #fff;
+        padding: 16px;
+      }
+
+      .module-card[data-layer="edge"] {
+        border-top-color: var(--blue);
+      }
+
+      .module-card[data-layer="orchestration"] {
+        border-top-color: var(--amber);
+      }
+
+      .module-card[data-layer="domain"] {
+        border-top-color: var(--green);
+      }
+
+      .module-card[data-layer="persistence"] {
+        border-top-color: var(--violet);
+      }
+
+      .module-card[data-layer="support"] {
+        border-top-color: var(--rose);
+      }
+
+      .module-card.hidden {
+        display: none;
+      }
+
+      .module-card .label {
+        color: var(--muted);
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        font-weight: 800;
+        letter-spacing: 0;
+      }
+
+      .module-card ul {
+        margin: 10px 0 0;
+        padding-left: 18px;
+        color: #3e4a4d;
+      }
+
+      .module-card li + li {
+        margin-top: 6px;
+      }
+
+      .db-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .table-card {
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #fff;
+        padding: 16px;
+      }
+
+      .table-card h3 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .table-card h3 span {
+        color: var(--muted);
+        font-size: 0.74rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .table-card ul {
+        margin: 12px 0 0;
+        padding-left: 18px;
+        color: #3f4b4d;
+      }
+
+      .relationship {
+        border: 1px solid var(--line);
+        background: var(--surface-2);
+        border-radius: var(--radius);
+        padding: 16px;
+        margin-top: 16px;
+      }
+
+      .relationship svg {
+        width: 100%;
+        height: auto;
+        display: block;
+      }
+
+      .compare {
+        width: 100%;
+        border-collapse: collapse;
+        background: #fff;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+      }
+
+      .compare th,
+      .compare td {
+        border-bottom: 1px solid var(--line);
+        padding: 12px;
+        text-align: left;
+        vertical-align: top;
+      }
+
+      .compare th {
+        background: var(--surface-2);
+        font-size: 0.84rem;
+      }
+
+      .compare tr:last-child td {
+        border-bottom: 0;
+      }
+
+      .risk-list {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .risk {
+        border: 1px solid var(--line);
+        border-left: 5px solid var(--rose);
+        border-radius: var(--radius);
+        background: #fff;
+        padding: 16px;
+      }
+
+      .risk[data-tone="amber"] {
+        border-left-color: var(--amber);
+      }
+
+      .risk[data-tone="blue"] {
+        border-left-color: var(--blue);
+      }
+
+      .risk[data-tone="green"] {
+        border-left-color: var(--green);
+      }
+
+      .read-path {
+        counter-reset: read;
+        display: grid;
+        gap: 10px;
+      }
+
+      .read-path a {
+        display: grid;
+        grid-template-columns: 38px minmax(0, 1fr);
+        gap: 10px;
+        align-items: center;
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        background: #fff;
+        padding: 10px 12px;
+        text-decoration: none;
+        color: var(--ink);
+      }
+
+      .read-path a::before {
+        counter-increment: read;
+        content: counter(read);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--green-soft);
+        color: var(--green);
+        font-weight: 800;
+      }
+
+      .footer {
+        padding: 28px 0;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      @media (max-width: 980px) {
+        .top-grid,
+        .section-head,
+        .two-col {
+          grid-template-columns: 1fr;
+        }
+
+        .top-grid {
+          min-height: auto;
+        }
+
+        .toc {
+          position: static;
+        }
+
+        .summary-grid,
+        .module-grid,
+        .db-grid,
+        .risk-list,
+        .three-col {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 680px) {
+        .shell {
+          padding: 0 16px;
+        }
+
+        .band .shell {
+          padding-top: 38px;
+          padding-bottom: 38px;
+        }
+
+        .summary-grid,
+        .module-grid,
+        .db-grid,
+        .risk-list,
+        .three-col,
+        .module-toolbar {
+          grid-template-columns: 1fr;
+        }
+
+        .filters {
+          justify-content: flex-start;
+        }
+
+        .layer {
+          grid-template-columns: 1fr;
+        }
+
+        .timeline {
+          grid-template-columns: 1fr;
+          overflow-x: visible;
+        }
+
+        .step::after {
+          content: "";
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="top" id="start">
+      <div class="shell top-grid">
+        <div>
+          <div class="eyebrow">Raport architektury</div>
+          <h1>FoodAlert: jak działa CLI monitorujące oferty Foodsi</h1>
+          <p class="lead">
+            FoodAlert to aplikacja konsolowa w Node.js i TypeScript. Dla wielu lokalnych profili loguje się do Foodsi,
+            pobiera aktualne oferty, zapisuje bieżący widok użytkownika w SQLite i wyprowadza alerty o zmianach
+            dostępności.
+          </p>
+          <div class="meta-row" aria-label="Najważniejsze cechy">
+            <span class="tag">TypeScript ESM</span>
+            <span class="tag">CLI przez Inquirer</span>
+            <span class="tag">SQLite + Drizzle</span>
+            <span class="tag">Foodsi jako provider</span>
+            <span class="tag">Vitest</span>
+          </div>
+          <div class="summary-grid">
+            <div class="metric"><strong>1</strong><span>zewnętrzny provider: Foodsi</span></div>
+            <div class="metric"><strong>7</strong><span>tabel domenowych w SQLite</span></div>
+            <div class="metric"><strong>10</strong><span>plików testowych w <span class="mono">src</span></span></div>
+            <div class="metric"><strong>5 min</strong><span>domyślny interwał watchera</span></div>
+          </div>
+        </div>
+
+        <nav class="toc" aria-label="Spis treści">
+          <h2>Spis treści</h2>
+          <a href="#overview">1. Co robi aplikacja</a>
+          <a href="#architecture">2. Architektura warstwowa</a>
+          <a href="#flows">3. Przepływy danych</a>
+          <a href="#modules">4. Mapa modułów</a>
+          <a href="#database">5. Model bazy danych</a>
+          <a href="#alerts">6. Reguły alertów</a>
+          <a href="#tests">7. Testy i jakość</a>
+          <a href="#risks">8. Ograniczenia</a>
+          <a href="#reading">9. Jak czytać kod</a>
+        </nav>
+      </div>
+    </header>
+
+    <main>
+      <section class="band white" id="overview">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Model mentalny</div>
+              <h2>Najkrótszy opis działania</h2>
+            </div>
+            <p>
+              Aplikacja nie jest serwerem. To lokalny proces CLI, który utrzymuje sesję bazy, odpala jednorazowe lub
+              cykliczne przebiegi i drukuje powiadomienia w konsoli.
+            </p>
+          </div>
+
+          <div class="three-col">
+            <article class="card">
+              <h3>Offer Snapshot</h3>
+              <p>
+                Bieżący widok ofert jednego użytkownika w jednym przebiegu watchera. Snapshot aktualizuje restauracje,
+                oferty i <span class="mono">user_offer_states</span>, a potem wskazuje oferty, które zniknęły.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Alert Derivation</h3>
+              <p>
+                Czystsza część reguł biznesowych. Z faktów zmian oraz polityki restauracji użytkownika tworzy
+                zdarzenia: <span class="mono">new-offer</span>, <span class="mono">re-stocked</span>,
+                <span class="mono">sold-out</span> i <span class="mono">stock-change</span>.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Provider Identity</h3>
+              <p>
+                Stabilny klucz w formacie <span class="mono">provider:externalId</span>. Chroni repozytoria przed
+                luźnym sklejaniem stringów i pozwala rozszerzać projekt o kolejnych providerów.
+              </p>
+            </article>
+          </div>
+
+          <div class="callout" style="margin-top: 18px">
+            <p>
+              Najważniejsze rozdzielenie odpowiedzialności: Foodsi dostarcza surowe dane, mapper zamienia je na
+              <span class="mono">OfferInput</span>, snapshot zapisuje stan, a Alert Derivation decyduje, czy warto
+              powiadomić użytkownika.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="architecture">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Architektura</div>
+              <h2>Warstwy i kierunek zależności</h2>
+            </div>
+            <p>
+              Zależności idą od adapterów zewnętrznych i CLI w dół do domeny oraz bazy. Typy domenowe są współdzielone,
+              ale logika zmiany stanu jest skupiona w snapshotach i alertach.
+            </p>
+          </div>
+
+          <div class="two-col">
+            <div class="stack">
+              <div class="layer" data-tone="edge">
+                <b>Warstwa użytkownika</b>
+                <div>
+                  <strong>CLI i prompt adapter</strong>
+                  <p>Menu, formularze, wybór użytkownika, akcje jednorazowe, status schedulera.</p>
+                  <div class="file-list">
+                    <a href="../src/cli/index.ts">src/cli/index.ts</a>
+                    <a href="../src/cli/prompts.ts">src/cli/prompts.ts</a>
+                  </div>
+                </div>
+              </div>
+              <div class="layer" data-tone="orchestration">
+                <b>Orkiestracja</b>
+                <div>
+                  <strong>Watcher i scheduler</strong>
+                  <p>Pobranie ofert, zapis snapshotu, wyprowadzenie alertów, timery per użytkownik.</p>
+                  <div class="file-list">
+                    <a href="../src/watcher/watcherService.ts">src/watcher/watcherService.ts</a>
+                    <a href="../src/watcher/schedulerService.ts">src/watcher/schedulerService.ts</a>
+                  </div>
+                </div>
+              </div>
+              <div class="layer" data-tone="edge">
+                <b>Adapter zewnętrzny</b>
+                <div>
+                  <strong>Foodsi API i mapper</strong>
+                  <p>Logowanie, paginacja, filtrowanie aktywnych ofert i mapowanie na model domenowy.</p>
+                  <div class="file-list">
+                    <a href="../src/foodsi/foodsiClient.ts">src/foodsi/foodsiClient.ts</a>
+                    <a href="../src/foodsi/mapFoodsiOffer.ts">src/foodsi/mapFoodsiOffer.ts</a>
+                  </div>
+                </div>
+              </div>
+              <div class="layer" data-tone="domain">
+                <b>Domena</b>
+                <div>
+                  <strong>Snapshot, alerty, tożsamość providera</strong>
+                  <p>Reguły stanu, różnice ilości, favorite-only, ignored restaurants i klucze providerowe.</p>
+                  <div class="file-list">
+                    <a href="../src/offers/offerSnapshot.ts">src/offers/offerSnapshot.ts</a>
+                    <a href="../src/alerts/alertDerivation.ts">src/alerts/alertDerivation.ts</a>
+                    <a href="../src/domain/providerIdentity.ts">src/domain/providerIdentity.ts</a>
+                  </div>
+                </div>
+              </div>
+              <div class="layer" data-tone="persistence">
+                <b>Persistencja</b>
+                <div>
+                  <strong>Repozytoria, Drizzle, SQLite</strong>
+                  <p>Operacje na użytkownikach, restauracjach, ofertach, ustawieniach i listach restauracji.</p>
+                  <div class="file-list">
+                    <a href="../src/db/client.ts">src/db/client.ts</a>
+                    <a href="../src/db/schema.ts">src/db/schema.ts</a>
+                    <a href="../src/offers/offerRepository.ts">src/offers/offerRepository.ts</a>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <article class="card">
+              <h3>Jak projekt jest napisany</h3>
+              <p>
+                Kod jest mały, ale ma jasny podział. Adaptery wejściowe nie powinny zawierać reguł alertów, a
+                repozytoria nie powinny znać mechaniki powiadomień. <span class="mono">WatcherService</span> pełni rolę
+                koordynatora i celowo jest cienki.
+              </p>
+              <p>
+                Baza działa jako pojedyncza aktywna <span class="mono">Database Session</span>. Start CLI inicjalizuje
+                SQLite, uruchamia migracje z katalogu <span class="mono">drizzle</span>, włącza WAL i foreign keys,
+                zasiewa domyślne ustawienia, a repozytoria pobierają uchwyt przez <span class="mono">getDb()</span>.
+              </p>
+              <p>
+                TypeScript działa w trybie <span class="mono">strict</span>, moduły są ESM
+                (<span class="mono">module: nodenext</span>), a testy są uruchamiane przez Vitest bez równoległości
+                plików, co pasuje do globalnej sesji bazy w testach.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band white" id="flows">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Przepływy</div>
+              <h2>Jak dane przechodzą przez system</h2>
+            </div>
+            <p>
+              Te przepływy są rdzeniem aplikacji. Kliknij przełączniki, żeby zobaczyć osobno przebieg jednorazowy,
+              pracę schedulera i konfigurację z CLI.
+            </p>
+          </div>
+
+          <div class="flow-tabs" role="tablist" aria-label="Przepływy danych">
+            <button class="tab-button" data-tab="run" role="tab" aria-selected="true">Run once</button>
+            <button class="tab-button" data-tab="schedule" role="tab" aria-selected="false">Watcher cykliczny</button>
+            <button class="tab-button" data-tab="config" role="tab" aria-selected="false">Konfiguracja CLI</button>
+          </div>
+
+          <div class="flow-panel active" data-panel="run" role="tabpanel">
+            <div class="timeline">
+              <article class="step">
+                <small>1</small>
+                <h3>Wybór profilu</h3>
+                <p>CLI wybiera <span class="mono">UserProfile</span>, który zawiera email, hasło i politykę alertów.</p>
+              </article>
+              <article class="step">
+                <small>2</small>
+                <h3>Logowanie Foodsi</h3>
+                <p><span class="mono">FoodsiClient</span> wysyła email i hasło do endpointu sign-in.</p>
+              </article>
+              <article class="step">
+                <small>3</small>
+                <h3>Pobranie ofert</h3>
+                <p>Klient pobiera aktywne oferty z ilością większą od zera i paginuje do maksymalnie 50 stron.</p>
+              </article>
+              <article class="step">
+                <small>4</small>
+                <h3>Mapowanie</h3>
+                <p><span class="mono">mapFoodsiOffer</span> zamienia element API na <span class="mono">OfferInput</span>.</p>
+              </article>
+              <article class="step">
+                <small>5</small>
+                <h3>Snapshot</h3>
+                <p>Transakcja zapisuje restauracje, oferty, stany użytkownika i wykrywa zniknięcia.</p>
+              </article>
+              <article class="step">
+                <small>6</small>
+                <h3>Alerty</h3>
+                <p>Reguły i listy restauracji tworzą zdarzenia, które notifier drukuje w konsoli.</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="flow-panel" data-panel="schedule" role="tabpanel">
+            <div class="timeline">
+              <article class="step">
+                <small>1</small>
+                <h3>Start dla użytkownika</h3>
+                <p><span class="mono">startForUser</span> zatrzymuje poprzedni timer i zwiększa generację.</p>
+              </article>
+              <article class="step">
+                <small>2</small>
+                <h3>Dobór interwału</h3>
+                <p>Użytkownik może mieć własny interwał, inaczej używany jest globalny default z <span class="mono">app_settings</span>.</p>
+              </article>
+              <article class="step">
+                <small>3</small>
+                <h3>Natychmiastowy przebieg</h3>
+                <p>Watcher wykonuje <span class="mono">runOnce</span> od razu, bez czekania na pierwszy timer.</p>
+              </article>
+              <article class="step">
+                <small>4</small>
+                <h3>Obsługa błędów</h3>
+                <p>Błąd przebiegu jest logowany, ale scheduler planuje kolejną próbę.</p>
+              </article>
+              <article class="step">
+                <small>5</small>
+                <h3>Jitter</h3>
+                <p>Opóźnienie to interwał plus lub minus 30 sekund, z minimalnym opóźnieniem 30 sekund.</p>
+              </article>
+              <article class="step">
+                <small>6</small>
+                <h3>Kontrola generacji</h3>
+                <p>Stary callback po restarcie nie planuje następnego timera, jeśli jego generacja jest nieaktualna.</p>
+              </article>
+            </div>
+          </div>
+
+          <div class="flow-panel" data-panel="config" role="tabpanel">
+            <div class="timeline">
+              <article class="step">
+                <small>1</small>
+                <h3>Profil</h3>
+                <p>CLI tworzy użytkownika z nazwą, emailem Foodsi, hasłem i domyślną polityką alertów.</p>
+              </article>
+              <article class="step">
+                <small>2</small>
+                <h3>Oferty bieżące</h3>
+                <p>Użytkownik może obejrzeć lub wyczyścić swój aktualny stan ofert.</p>
+              </article>
+              <article class="step">
+                <small>3</small>
+                <h3>Restauracje</h3>
+                <p>Listy ulubionych i ignorowanych są wybierane z bieżących ofert albo ostatnio widzianych restauracji.</p>
+              </article>
+              <article class="step">
+                <small>4</small>
+                <h3>Favorite-only</h3>
+                <p>Flaga użytkownika ogranicza alerty tylko do restauracji z listy favorites.</p>
+              </article>
+              <article class="step">
+                <small>5</small>
+                <h3>Interwały</h3>
+                <p>Globalny default i interwał per user są walidowane na integer co najmniej 1 minuta.</p>
+              </article>
+              <article class="step">
+                <small>6</small>
+                <h3>Usuwanie profilu</h3>
+                <p>Workflow najpierw zapomina użytkownika w schedulerze, potem usuwa jego wiersze z bazy.</p>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="band" id="modules">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Mapa kodu</div>
+              <h2>Moduły, odpowiedzialności i callerzy</h2>
+            </div>
+            <p>
+              Filtr pomaga szybko znaleźć warstwę. Opisy używają słownika projektu: Offer Snapshot, Alert Derivation,
+              Database Session, Provider Identity i CLI Workflows.
+            </p>
+          </div>
+
+          <div class="module-toolbar">
+            <input class="search" id="moduleSearch" type="search" placeholder="Filtruj moduły, np. snapshot, scheduler, sqlite" />
+            <div class="filters" aria-label="Filtry modułów">
+              <button class="filter-button active" data-filter="all">Wszystkie</button>
+              <button class="filter-button" data-filter="edge">Adaptery</button>
+              <button class="filter-button" data-filter="orchestration">Orkiestracja</button>
+              <button class="filter-button" data-filter="domain">Domena</button>
+              <button class="filter-button" data-filter="persistence">DB</button>
+              <button class="filter-button" data-filter="support">Wsparcie</button>
+            </div>
+          </div>
+
+          <div class="module-grid" id="moduleGrid">
+            <article class="module-card" data-layer="edge" data-keywords="cli index prompts inquirer menu workflow user settings restaurants offers">
+              <div class="label">Adapter użytkownika</div>
+              <h3>CLI</h3>
+              <ul>
+                <li>Startuje przez side effect importu w <span class="mono">src/index.ts</span>.</li>
+                <li>Obsługuje menu Users, Run once, Watch all, Offers, Restaurants i Settings.</li>
+                <li>Przekazuje decyzje do repozytoriów, <span class="mono">WatcherService</span> i <span class="mono">SchedulerService</span>.</li>
+              </ul>
+              <div class="file-list"><a href="../src/cli/index.ts">index.ts</a><a href="../src/cli/prompts.ts">prompts.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="domain" data-keywords="cli workflows favorites ignored delete profile restaurant lists">
+              <div class="label">CLI Workflows</div>
+              <h3>Workflowy list restauracji</h3>
+              <ul>
+                <li>Oddzielają reguły mutacji list od promptów.</li>
+                <li>Zapewniają kolejność: scheduler zapomina profil przed usunięciem użytkownika.</li>
+                <li>Filtrują restauracje, których nie można już dodać do danej listy.</li>
+              </ul>
+              <div class="file-list"><a href="../src/cli/workflows.ts">workflows.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="orchestration" data-keywords="watcher run once fetch snapshot alert notifier">
+              <div class="label">Orkiestracja</div>
+              <h3>WatcherService</h3>
+              <ul>
+                <li>Koordynuje jeden przebieg dla jednego <span class="mono">UserProfile</span>.</li>
+                <li>Wywołuje Foodsi, zapisuje Offer Snapshot, wyprowadza Alert Events.</li>
+                <li>Notifier dostaje tylko <span class="mono">UserDisplay</span>, bez hasła i emaila.</li>
+              </ul>
+              <div class="file-list"><a href="../src/watcher/watcherService.ts">watcherService.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="orchestration" data-keywords="scheduler timer generation jitter interval start stop status">
+              <div class="label">Orkiestracja</div>
+              <h3>SchedulerService</h3>
+              <ul>
+                <li>Ma niezależny timer dla każdego użytkownika.</li>
+                <li>Generacje chronią przed odświeżeniem starego timera po restarcie watchera.</li>
+                <li>Status pokazuje, czy użytkownik jest watching lub idle oraz kiedy będzie kolejny przebieg.</li>
+              </ul>
+              <div class="file-list"><a href="../src/watcher/schedulerService.ts">schedulerService.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="edge" data-keywords="foodsi api auth fetch pagination headers token offers provider">
+              <div class="label">Adapter zewnętrzny</div>
+              <h3>FoodsiClient</h3>
+              <ul>
+                <li>Loguje się przez endpoint Foodsi i odczytuje nagłówki tokenowe.</li>
+                <li>Pobiera oferty aktywne, z ilością większą od zera i pickup_to w przyszłości.</li>
+                <li>Wyjaśnia błędy DNS i limituje paginację do 50 stron.</li>
+              </ul>
+              <div class="file-list"><a href="../src/foodsi/foodsiClient.ts">foodsiClient.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="edge" data-keywords="map foodsi offer mapper parse price date distance venue">
+              <div class="label">Adapter zewnętrzny</div>
+              <h3>mapFoodsiOffer</h3>
+              <ul>
+                <li>Normalizuje surowy element API do <span class="mono">OfferInput</span>.</li>
+                <li>Obsługuje ceny z kropką lub przecinkiem oraz daty odbioru.</li>
+                <li>Gdy brakuje <span class="mono">venue_id</span>, buduje fallback <span class="mono">name|address</span>.</li>
+              </ul>
+              <div class="file-list"><a href="../src/foodsi/mapFoodsiOffer.ts">mapFoodsiOffer.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="domain" data-keywords="offer snapshot transaction current disappeared quantities user offer state">
+              <div class="label">Domena</div>
+              <h3>Offer Snapshot</h3>
+              <ul>
+                <li>Przed transakcją odczytuje poprzednie ilości i poprzednie stany użytkownika.</li>
+                <li>W transakcji robi batch upsert restauracji, ofert i <span class="mono">user_offer_states</span>.</li>
+                <li>Usuwa stany ofert, które zniknęły z aktualnego fetchu.</li>
+              </ul>
+              <div class="file-list"><a href="../src/offers/offerSnapshot.ts">offerSnapshot.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="domain" data-keywords="alert derivation new offer restocked sold out stock change favorite ignored">
+              <div class="label">Domena</div>
+              <h3>Alert Derivation</h3>
+              <ul>
+                <li>Najpierw filtruje restauracje ignorowane, potem favorite-only.</li>
+                <li>Brak zmiany ilości nie tworzy alertu.</li>
+                <li>Zniknięta oferta zawsze staje się zdarzeniem <span class="mono">sold-out</span>, jeśli nie jest odfiltrowana.</li>
+              </ul>
+              <div class="file-list"><a href="../src/alerts/alertDerivation.ts">alertDerivation.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="domain" data-keywords="provider identity provider external id key label grouping">
+              <div class="label">Domena</div>
+              <h3>Provider Identity</h3>
+              <ul>
+                <li>Centralizuje klucze <span class="mono">foodsi:externalId</span>.</li>
+                <li>Daje etykiety do CLI i grupowanie external id per provider.</li>
+                <li>Jest małym zabezpieczeniem przed ad hoc stringami w repozytoriach.</li>
+              </ul>
+              <div class="file-list"><a href="../src/domain/providerIdentity.ts">providerIdentity.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="persistence" data-keywords="database session sqlite drizzle migrate wal foreign keys settings">
+              <div class="label">Persistencja</div>
+              <h3>Database Session</h3>
+              <ul>
+                <li>Wybiera ścieżkę bazy z <span class="mono">FOODALERT_DB_PATH</span> albo <span class="mono">foodalert.sqlite</span>.</li>
+                <li>Ustawia WAL, foreign keys, uruchamia migracje i seeduje <span class="mono">app_settings</span>.</li>
+                <li>Utrzymuje jeden aktywny uchwyt bazy dla repozytoriów.</li>
+              </ul>
+              <div class="file-list"><a href="../src/db/client.ts">client.ts</a><a href="../src/db/schema.ts">schema.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="persistence" data-keywords="user repository profiles settings interval favorites delete">
+              <div class="label">Persistencja</div>
+              <h3>User Repository</h3>
+              <ul>
+                <li>Tworzy, listuje i usuwa profile użytkowników.</li>
+                <li>Waliduje interwał watchera jako integer co najmniej 1 minuta lub <span class="mono">null</span>.</li>
+                <li>Przy usuwaniu ręcznie czyści stany ofert, favorites i ignored.</li>
+              </ul>
+              <div class="file-list"><a href="../src/users/userRepository.ts">userRepository.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="persistence" data-keywords="restaurant repository favorites ignored current recently seen">
+              <div class="label">Persistencja</div>
+              <h3>Restaurant Repository</h3>
+              <ul>
+                <li>Upsertuje restauracje po <span class="mono">provider + externalId</span>.</li>
+                <li>Zwraca restauracje z bieżących ofert oraz wszystkie ostatnio widziane.</li>
+                <li>Mutuje listy <span class="mono">user_favorite_restaurants</span> i <span class="mono">user_ignored_restaurants</span>.</li>
+              </ul>
+              <div class="file-list"><a href="../src/restaurants/restaurantRepository.ts">restaurantRepository.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="persistence" data-keywords="offer repository offers user offer states quantities batch upsert current">
+              <div class="label">Persistencja</div>
+              <h3>Offer Repository</h3>
+              <ul>
+                <li>Przechowuje globalne oferty i per-user current quantity.</li>
+                <li>Wspiera batch upsert używany przez Offer Snapshot.</li>
+                <li>Listuje bieżące oferty użytkownika tylko z ilością większą od zera.</li>
+              </ul>
+              <div class="file-list"><a href="../src/offers/offerRepository.ts">offerRepository.ts</a></div>
+            </article>
+
+            <article class="module-card" data-layer="support" data-keywords="notification console notifier format price pickup">
+              <div class="label">Wsparcie</div>
+              <h3>ConsoleNotifier i utils</h3>
+              <ul>
+                <li>Drukuje alerty w konsoli w zależności od typu zdarzenia.</li>
+                <li>Formatuje ceny i okna odbioru przez <span class="mono">pl-PL</span>.</li>
+                <li>Nie zna haseł ani emaili użytkowników.</li>
+              </ul>
+              <div class="file-list"><a href="../src/notifications/consoleNotifier.ts">consoleNotifier.ts</a><a href="../src/utils/format.ts">format.ts</a></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band white" id="database">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Dane</div>
+              <h2>Model bazy danych</h2>
+            </div>
+            <p>
+              Baza rozdziela globalną wiedzę o restauracjach i ofertach od widoku konkretnego użytkownika. To pozwala
+              wielu profilom patrzeć na te same oferty, ale mieć własny stan i własne listy restauracji.
+            </p>
+          </div>
+
+          <div class="db-grid">
+            <article class="table-card">
+              <h3>users <span>profil</span></h3>
+              <ul>
+                <li>name, foodsiEmail, foodsiPassword</li>
+                <li>notifyOnlyFavorites</li>
+                <li>watchIntervalMinutes</li>
+              </ul>
+            </article>
+            <article class="table-card">
+              <h3>app_settings <span>globalne</span></h3>
+              <ul>
+                <li>id = 1</li>
+                <li>defaultWatchIntervalMinutes</li>
+              </ul>
+            </article>
+            <article class="table-card">
+              <h3>restaurants <span>provider</span></h3>
+              <ul>
+                <li>provider + externalId jako unikalny klucz</li>
+                <li>name, logoUrl, address</li>
+                <li>lastSeenAt, createdAt, updatedAt</li>
+              </ul>
+            </article>
+            <article class="table-card">
+              <h3>offers <span>provider</span></h3>
+              <ul>
+                <li>provider + externalId jako unikalny klucz</li>
+                <li>restaurantId jako FK do restaurants</li>
+                <li>currentQuantity i szczegóły odbioru</li>
+              </ul>
+            </article>
+            <article class="table-card">
+              <h3>user_offer_states <span>per user</span></h3>
+              <ul>
+                <li>userId + offerId jako unikalny klucz</li>
+                <li>currentQuantity użytkownika</li>
+                <li>lastSeenAt</li>
+              </ul>
+            </article>
+            <article class="table-card">
+              <h3>favorites / ignored <span>listy</span></h3>
+              <ul>
+                <li>userId + restaurantId</li>
+                <li>oddzielne tabele dla favorites i ignored</li>
+                <li>createdAt</li>
+              </ul>
+            </article>
+          </div>
+
+          <div class="relationship" aria-label="Relacje tabel">
+            <svg viewBox="0 0 920 280" role="img" aria-labelledby="dbTitle dbDesc">
+              <title id="dbTitle">Relacje tabel FoodAlert</title>
+              <desc id="dbDesc">users łączą się ze stanami ofert oraz listami restauracji, offers łączą się z restaurants.</desc>
+              <defs>
+                <marker id="arrow" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto">
+                  <path d="M0,0 L10,4 L0,8 Z" fill="#5e696c"></path>
+                </marker>
+              </defs>
+              <rect x="22" y="30" width="150" height="62" rx="8" fill="#dce8f4" stroke="#345d8a"></rect>
+              <text x="97" y="66" text-anchor="middle" font-size="16" font-weight="700" fill="#1d2527">users</text>
+              <rect x="252" y="30" width="180" height="62" rx="8" fill="#e5e1ef" stroke="#5c527f"></rect>
+              <text x="342" y="66" text-anchor="middle" font-size="16" font-weight="700" fill="#1d2527">user_offer_states</text>
+              <rect x="522" y="30" width="150" height="62" rx="8" fill="#f1e5d5" stroke="#a66f2d"></rect>
+              <text x="597" y="66" text-anchor="middle" font-size="16" font-weight="700" fill="#1d2527">offers</text>
+              <rect x="742" y="30" width="150" height="62" rx="8" fill="#dbece4" stroke="#2f7d5c"></rect>
+              <text x="817" y="66" text-anchor="middle" font-size="16" font-weight="700" fill="#1d2527">restaurants</text>
+
+              <rect x="252" y="166" width="180" height="62" rx="8" fill="#f1dfe2" stroke="#9a4450"></rect>
+              <text x="342" y="191" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2527">user_favorite</text>
+              <text x="342" y="211" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2527">restaurants</text>
+              <rect x="522" y="166" width="180" height="62" rx="8" fill="#f1dfe2" stroke="#9a4450"></rect>
+              <text x="612" y="191" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2527">user_ignored</text>
+              <text x="612" y="211" text-anchor="middle" font-size="15" font-weight="700" fill="#1d2527">restaurants</text>
+
+              <line x1="172" y1="61" x2="252" y2="61" stroke="#5e696c" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="432" y1="61" x2="522" y2="61" stroke="#5e696c" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="672" y1="61" x2="742" y2="61" stroke="#5e696c" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="97" y1="92" x2="252" y2="184" stroke="#5e696c" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="817" y1="92" x2="432" y2="197" stroke="#5e696c" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="97" y1="92" x2="522" y2="184" stroke="#5e696c" stroke-width="2" marker-end="url(#arrow)"></line>
+              <line x1="817" y1="92" x2="702" y2="197" stroke="#5e696c" stroke-width="2" marker-end="url(#arrow)"></line>
+            </svg>
+          </div>
+
+          <table class="compare" style="margin-top: 18px">
+            <thead>
+              <tr>
+                <th>Element</th>
+                <th>Rola</th>
+                <th>Ważna konsekwencja</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><span class="mono">offers.currentQuantity</span></td>
+                <td>Ostatnio znana ilość oferty jako byt globalny.</td>
+                <td>Może być aktualizowana przez fetch dowolnego użytkownika.</td>
+              </tr>
+              <tr>
+                <td><span class="mono">user_offer_states.currentQuantity</span></td>
+                <td>Bieżący stan oferty widziany przez konkretnego użytkownika.</td>
+                <td>To ta wartość jest używana do porównania w Offer Snapshot.</td>
+              </tr>
+              <tr>
+                <td><span class="mono">restaurants.lastSeenAt</span></td>
+                <td>Pomaga utrzymać listę ostatnio widzianych restauracji.</td>
+                <td>CLI może dodawać restauracje do favorites/ignored także spoza aktualnych ofert.</td>
+              </tr>
+              <tr>
+                <td>Migracje vs schema</td>
+                <td>Kod schematu deklaruje cascade dla tabel użytkownika.</td>
+                <td>Pierwsza migracja nie zawiera cascade, więc <span class="mono">deleteUser</span> czyści dane ręcznie.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="band" id="alerts">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Alert Derivation</div>
+              <h2>Reguły zamiany zmian na powiadomienia</h2>
+            </div>
+            <p>
+              Reguły są deterministyczne i testowane jako czysta funkcja. Dane polityki restauracji są pobierane osobno
+              przez <span class="mono">deriveAlertEventsForUser</span>.
+            </p>
+          </div>
+
+          <table class="compare">
+            <thead>
+              <tr>
+                <th>Fakt ze snapshotu</th>
+                <th>Warunek</th>
+                <th>Alert</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Oferta aktualna</td>
+                <td><span class="mono">currentQuantity === previousQuantity</span></td>
+                <td>Brak alertu.</td>
+              </tr>
+              <tr>
+                <td>Oferta aktualna</td>
+                <td>Poprzednio 0, teraz &gt; 0, oferta nie istniała wcześniej.</td>
+                <td><span class="mono">new-offer</span></td>
+              </tr>
+              <tr>
+                <td>Oferta aktualna</td>
+                <td>Poprzednio 0, teraz &gt; 0, oferta istniała wcześniej.</td>
+                <td><span class="mono">re-stocked</span></td>
+              </tr>
+              <tr>
+                <td>Oferta aktualna</td>
+                <td>Poprzednio &gt; 0, teraz 0.</td>
+                <td><span class="mono">sold-out</span></td>
+              </tr>
+              <tr>
+                <td>Oferta aktualna</td>
+                <td>Ilość zmieniła się, ale nie pasuje do powyższych przypadków.</td>
+                <td><span class="mono">stock-change</span></td>
+              </tr>
+              <tr>
+                <td>Oferta zniknęła</td>
+                <td>Była w poprzednim stanie użytkownika, nie ma jej w aktualnym fetchu.</td>
+                <td><span class="mono">sold-out</span> z ilością 0.</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="three-col" style="margin-top: 16px">
+            <article class="card">
+              <h3>Ignored ma pierwszeństwo</h3>
+              <p>Jeśli restauracja jest ignorowana, alert nie powstaje nawet wtedy, gdy jest też ulubiona.</p>
+            </article>
+            <article class="card">
+              <h3>Favorite-only zawęża</h3>
+              <p>Gdy <span class="mono">notifyOnlyFavorites</span> jest włączone, alerty przechodzą tylko dla ulubionych restauracji.</p>
+            </article>
+            <article class="card">
+              <h3>Notifier jest końcówką</h3>
+              <p><span class="mono">ConsoleNotifier</span> tylko prezentuje gotowy <span class="mono">AlertEvent</span>. Nie decyduje o regułach.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band white" id="tests">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Jakość</div>
+              <h2>Co pokrywają testy</h2>
+            </div>
+            <p>
+              Testy są mocno domenowe. Największa wartość jest w testach snapshotu, watchera i alertów, bo one
+              zabezpieczają reguły, które użytkownik realnie odczuwa jako powiadomienia.
+            </p>
+          </div>
+
+          <div class="three-col">
+            <article class="card">
+              <h3>Snapshot i watcher</h3>
+              <p>
+                Testy sprawdzają batch upsert, reuse restauracji, aktualizację ilości, zniknięte oferty jako sold-out
+                oraz rollback transakcji, gdy jedna oferta jest niepoprawna.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Alert Derivation</h3>
+              <p>
+                Pokryte są wszystkie typy alertów oraz filtrowanie przez ignored i favorite-only.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Adaptery i workflowy</h3>
+              <p>
+                Mapper Foodsi ma testy fallbacków i parsowania, FoodsiClient test wyjaśnienia DNS, a CLI Workflows
+                testują routing mutacji i usuwanie profilu.
+              </p>
+            </article>
+          </div>
+
+          <table class="compare" style="margin-top: 18px">
+            <thead>
+              <tr>
+                <th>Obszar</th>
+                <th>Pliki testów</th>
+                <th>Wniosek</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Domena stanu</td>
+                <td><span class="mono">offerSnapshot.test.ts</span>, <span class="mono">alertDerivation.test.ts</span></td>
+                <td>Najważniejsze reguły są utrwalone w testach jednostkowych i integracyjnych z SQLite.</td>
+              </tr>
+              <tr>
+                <td>Runtime</td>
+                <td><span class="mono">watcherService.test.ts</span>, <span class="mono">schedulerService.test.ts</span></td>
+                <td>Watcher ma testy ścieżki transakcyjnej, scheduler timing ma testy jittera.</td>
+              </tr>
+              <tr>
+                <td>Granice systemu</td>
+                <td><span class="mono">foodsiClient.test.ts</span>, <span class="mono">mapFoodsiOffer.test.ts</span></td>
+                <td>Mapowanie API jest dobrze doprecyzowane, sam klient Foodsi ma na razie wąski test błędu DNS.</td>
+              </tr>
+              <tr>
+                <td>DB Session</td>
+                <td><span class="mono">client.test.ts</span></td>
+                <td>Start sesji, migracja i seed ustawień są weryfikowane na tymczasowej bazie.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="band" id="risks">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Ograniczenia</div>
+              <h2>Miejsca, które warto znać przed zmianami</h2>
+            </div>
+            <p>
+              To nie są błędy blokujące działanie, tylko świadome koszty obecnego kształtu aplikacji i dobre punkty
+              startowe do kolejnych iteracji.
+            </p>
+          </div>
+
+          <div class="risk-list">
+            <article class="risk">
+              <h3>Hasła plaintext w SQLite</h3>
+              <p>README wprost wskazuje to jako znane ograniczenie. To najważniejszy temat bezpieczeństwa.</p>
+            </article>
+            <article class="risk" data-tone="amber">
+              <h3>Spoofowane nagłówki Androida</h3>
+              <p><span class="mono">FOODSI_HEADERS</span> mogą wymagać aktualizacji, gdy Foodsi zmieni aplikację mobilną lub wymagania API.</p>
+            </article>
+            <article class="risk" data-tone="blue">
+              <h3>Brak retry i backoff</h3>
+              <p>Pojedynczy błąd sieci kończy dany przebieg użytkownika. Scheduler spróbuje ponownie dopiero w następnym cyklu.</p>
+            </article>
+            <article class="risk" data-tone="green">
+              <h3>Logowanie per fetch</h3>
+              <p>Tokeny Foodsi nie są cache'owane. To upraszcza kod, ale zwiększa liczbę requestów auth.</p>
+            </article>
+            <article class="risk" data-tone="amber">
+              <h3>Globalna aktywna sesja DB</h3>
+              <p>Repozytoria zależą od <span class="mono">getDb()</span>. Dla CLI jest to proste, ale utrudnia równoległe testy i wiele baz naraz.</p>
+            </article>
+            <article class="risk" data-tone="blue">
+              <h3>Tylko jeden provider</h3>
+              <p>Typ <span class="mono">Provider</span> i klucze providerowe są gotowe na rozszerzenie, ale orkiestracja pobiera dziś tylko Foodsi.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="band white" id="reading">
+        <div class="shell">
+          <div class="section-head">
+            <div>
+              <div class="eyebrow">Nawigacja po kodzie</div>
+              <h2>Najlepsza kolejność czytania</h2>
+            </div>
+            <p>
+              Jeśli chcesz szybko zrozumieć projekt od zera, ta kolejność przechodzi od słownika domeny do przebiegu
+              runtime, potem do danych i przypadków brzegowych.
+            </p>
+          </div>
+
+          <div class="two-col">
+            <div class="read-path">
+              <a href="../CONTEXT.md"><span><strong>CONTEXT.md</strong><br />Słownik domenowy i pojęcia, których warto używać.</span></a>
+              <a href="../src/domain/types.ts"><span><strong>src/domain/types.ts</strong><br />Główne typy: UserProfile, Restaurant, Offer, AlertEvent.</span></a>
+              <a href="../src/watcher/watcherService.ts"><span><strong>src/watcher/watcherService.ts</strong><br />Najkrótsza ścieżka runtime: fetch -> snapshot -> alert -> notify.</span></a>
+              <a href="../src/offers/offerSnapshot.ts"><span><strong>src/offers/offerSnapshot.ts</strong><br />Serce zapisu stanu i wykrywania znikniętych ofert.</span></a>
+              <a href="../src/alerts/alertDerivation.ts"><span><strong>src/alerts/alertDerivation.ts</strong><br />Reguły powiadomień i polityka restauracji.</span></a>
+              <a href="../src/db/schema.ts"><span><strong>src/db/schema.ts</strong><br />Tabele i relacje, które utrzymują stan aplikacji.</span></a>
+            </div>
+
+            <article class="card">
+              <h3>Jednozdaniowa mapa przepływu</h3>
+              <p>
+                <span class="mono">CLI</span> wybiera użytkownika, <span class="mono">WatcherService</span> pobiera
+                <span class="mono">OfferInput[]</span> z Foodsi, <span class="mono">recordOfferSnapshot</span> zapisuje
+                różnice w SQLite, <span class="mono">deriveAlertEventsForUser</span> filtruje je przez favorites i
+                ignored, a <span class="mono">ConsoleNotifier</span> drukuje wynik.
+              </p>
+              <p>
+                Najważniejszy punkt kontroli jakości to pilnowanie, żeby reguły Alert Derivation nie wyciekały do CLI,
+                notyfikatora ani repozytoriów. Dzięki temu zmiana sposobu powiadamiania nie powinna zmieniać sposobu
+                wykrywania zdarzeń.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="shell">
+        Raport wygenerowany na podstawie lokalnych plików repozytorium FoodAlert. Plik jest statyczny i można go otworzyć bez dev servera.
+      </div>
+    </footer>
+
+    <script>
+      const tabButtons = Array.from(document.querySelectorAll(".tab-button"));
+      const panels = Array.from(document.querySelectorAll(".flow-panel"));
+
+      tabButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          const selected = button.dataset.tab;
+          tabButtons.forEach((entry) => entry.setAttribute("aria-selected", String(entry === button)));
+          panels.forEach((panel) => panel.classList.toggle("active", panel.dataset.panel === selected));
+        });
+      });
+
+      const search = document.getElementById("moduleSearch");
+      const filterButtons = Array.from(document.querySelectorAll(".filter-button"));
+      const moduleCards = Array.from(document.querySelectorAll(".module-card"));
+      let activeFilter = "all";
+
+      function normalize(value) {
+        return value
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "");
+      }
+
+      function applyModuleFilters() {
+        const query = normalize(search.value.trim());
+        moduleCards.forEach((card) => {
+          const layerMatches = activeFilter === "all" || card.dataset.layer === activeFilter;
+          const text = normalize(`${card.textContent} ${card.dataset.keywords || ""}`);
+          const queryMatches = query.length === 0 || text.includes(query);
+          card.classList.toggle("hidden", !(layerMatches && queryMatches));
+        });
+      }
+
+      search.addEventListener("input", applyModuleFilters);
+      filterButtons.forEach((button) => {
+        button.addEventListener("click", () => {
+          activeFilter = button.dataset.filter;
+          filterButtons.forEach((entry) => entry.classList.toggle("active", entry === button));
+          applyModuleFilters();
+        });
+      });
+    </script>
+  </body>
+</html>
