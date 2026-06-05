@@ -96,6 +96,7 @@ export function upsertRestaurantsBatch(executor: DbOrTx, inputs: RestaurantInput
 
 export async function listRestaurantsFromCurrentOffers(userId: number): Promise<Restaurant[]> {
   const db = getDb();
+  const nearestDistanceKm = sql<number | null>`min(${userOfferStates.distanceKm})`;
   const rows = await db
     .select({ restaurant: restaurants })
     .from(userOfferStates)
@@ -103,7 +104,7 @@ export async function listRestaurantsFromCurrentOffers(userId: number): Promise<
     .innerJoin(restaurants, eq(offers.restaurantId, restaurants.id))
     .where(and(eq(userOfferStates.userId, userId), gt(userOfferStates.currentQuantity, 0)))
     .groupBy(restaurants.id)
-    .orderBy(restaurants.name);
+    .orderBy(sql`${nearestDistanceKm} IS NULL`, nearestDistanceKm, restaurants.name);
 
   return rows.map((row) => toRestaurant(row.restaurant));
 }

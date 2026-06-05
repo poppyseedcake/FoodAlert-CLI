@@ -60,7 +60,7 @@ export async function recordOfferSnapshot(userId: number, fetchedOffers: OfferIn
         originalPrice: detail.originalPrice,
         pickupFrom: detail.pickupFrom,
         pickupTo: detail.pickupTo,
-        distanceKm: detail.distanceKm,
+        distanceKm: ref.distanceKm,
       },
       restaurantId: detail.restaurantId,
       previousQuantity: ref.currentQuantity,
@@ -95,7 +95,7 @@ export async function recordOfferSnapshot(userId: number, fetchedOffers: OfferIn
       if (offerId === undefined) {
         throw new Error(`Missing offerId for offer ${offerQuantityKey(offer)}`);
       }
-      return { userId, offerId, currentQuantity: offer.quantity };
+      return { userId, offerId, currentQuantity: offer.quantity, distanceKm: offer.distanceKm };
     });
 
     upsertUserOfferStatesBatch(tx, stateEntries);

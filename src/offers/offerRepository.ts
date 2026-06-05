@@ -10,7 +10,14 @@ type DbOrTx = BetterSQLite3Database<typeof schema>;
 
 type OfferRow = typeof offers.$inferSelect;
 
-export function toOffer(row: OfferRow, restaurantExternalId: string, restaurantName: string, restaurantLogoUrl: string | null, restaurantAddress: string | null): Offer {
+export function toOffer(
+  row: OfferRow,
+  restaurantExternalId: string,
+  restaurantName: string,
+  restaurantLogoUrl: string | null,
+  restaurantAddress: string | null,
+  distanceKm: number | null,
+): Offer {
   return {
     id: row.id,
     provider: row.provider as Provider,
@@ -26,7 +33,7 @@ export function toOffer(row: OfferRow, restaurantExternalId: string, restaurantN
     originalPrice: row.originalPrice,
     pickupFrom: row.pickupFrom ? new Date(row.pickupFrom) : null,
     pickupTo: row.pickupTo ? new Date(row.pickupTo) : null,
-    distanceKm: row.distanceKm,
+    distanceKm,
   };
 }
 
@@ -62,6 +69,7 @@ export type UserOfferStateRow = {
   provider: Provider;
   externalId: string;
   currentQuantity: number;
+  distanceKm: number | null;
 };
 
 export async function listUserOfferStates(userId: number): Promise<UserOfferStateRow[]> {
@@ -72,6 +80,7 @@ export async function listUserOfferStates(userId: number): Promise<UserOfferStat
       provider: offers.provider,
       externalId: offers.externalId,
       currentQuantity: userOfferStates.currentQuantity,
+      distanceKm: userOfferStates.distanceKm,
     })
     .from(userOfferStates)
     .innerJoin(offers, eq(userOfferStates.offerId, offers.id))
@@ -82,10 +91,11 @@ export async function listUserOfferStates(userId: number): Promise<UserOfferStat
     provider: row.provider as Provider,
     externalId: row.externalId,
     currentQuantity: row.currentQuantity,
+    distanceKm: row.distanceKm,
   }));
 }
 
-export type OfferWithRestaurant = OfferInput & { offerId: number; restaurantId: number };
+export type OfferWithRestaurant = Omit<OfferInput, 'distanceKm'> & { offerId: number; restaurantId: number };
 
 export async function getOffersDetailsByIds(offerIds: number[]): Promise<OfferWithRestaurant[]> {
   if (offerIds.length === 0) return [];
@@ -116,7 +126,6 @@ export async function getOffersDetailsByIds(offerIds: number[]): Promise<OfferWi
     originalPrice: row.offer.originalPrice,
     pickupFrom: row.offer.pickupFrom ? new Date(row.offer.pickupFrom) : null,
     pickupTo: row.offer.pickupTo ? new Date(row.offer.pickupTo) : null,
-    distanceKm: row.offer.distanceKm,
   }));
 }
 
@@ -144,7 +153,6 @@ export async function upsertOffer(input: OfferInput, restaurantId: number): Prom
       originalPrice: input.originalPrice,
       pickupFrom: input.pickupFrom?.toISOString() ?? null,
       pickupTo: input.pickupTo?.toISOString() ?? null,
-      distanceKm: input.distanceKm,
       lastSeenAt: now,
       createdAt: now,
       updatedAt: now,
@@ -160,7 +168,6 @@ export async function upsertOffer(input: OfferInput, restaurantId: number): Prom
         originalPrice: input.originalPrice,
         pickupFrom: input.pickupFrom?.toISOString() ?? null,
         pickupTo: input.pickupTo?.toISOString() ?? null,
-        distanceKm: input.distanceKm,
         lastSeenAt: now,
         updatedAt: now,
       },
@@ -175,15 +182,15 @@ export async function upsertOffer(input: OfferInput, restaurantId: number): Prom
   return id;
 }
 
-export async function upsertUserOfferState(userId: number, offerId: number, currentQuantity: number): Promise<void> {
+export async function upsertUserOfferState(userId: number, offerId: number, currentQuantity: number, distanceKm: number | null): Promise<void> {
   const db = getDb();
   const now = new Date().toISOString();
   await db
     .insert(userOfferStates)
-    .values({ userId, offerId, currentQuantity, lastSeenAt: now })
+    .values({ userId, offerId, currentQuantity, distanceKm, lastSeenAt: now })
     .onConflictDoUpdate({
       target: [userOfferStates.userId, userOfferStates.offerId],
-      set: { currentQuantity, lastSeenAt: now },
+      set: { currentQuantity, distanceKm, lastSeenAt: now },
     });
 }
 
@@ -209,7 +216,6 @@ export function upsertOffersBatch(
         originalPrice: offer.originalPrice,
         pickupFrom: offer.pickupFrom?.toISOString() ?? null,
         pickupTo: offer.pickupTo?.toISOString() ?? null,
-        distanceKm: offer.distanceKm,
         lastSeenAt: now,
         createdAt: now,
         updatedAt: now,
@@ -226,7 +232,6 @@ export function upsertOffersBatch(
         originalPrice: sql.raw(`excluded.${offers.originalPrice.name}`),
         pickupFrom: sql.raw(`excluded.${offers.pickupFrom.name}`),
         pickupTo: sql.raw(`excluded.${offers.pickupTo.name}`),
-        distanceKm: sql.raw(`excluded.${offers.distanceKm.name}`),
         lastSeenAt: now,
         updatedAt: now,
       },
@@ -242,7 +247,7 @@ export function upsertOffersBatch(
 
 export function upsertUserOfferStatesBatch(
   executor: DbOrTx,
-  entries: Array<{ userId: number; offerId: number; currentQuantity: number }>,
+  entries: Array<{ userId: number; offerId: number; currentQuantity: number; distanceKm: number | null }>,
 ): void {
   if (entries.length === 0) return;
   const now = new Date().toISOString();
@@ -251,7 +256,11 @@ export function upsertUserOfferStatesBatch(
     .values(entries.map((e) => ({ ...e, lastSeenAt: now })))
     .onConflictDoUpdate({
       target: [userOfferStates.userId, userOfferStates.offerId],
-      set: { currentQuantity: sql.raw(`excluded.${userOfferStates.currentQuantity.name}`), lastSeenAt: now },
+      set: {
+        currentQuantity: sql.raw(`excluded.${userOfferStates.currentQuantity.name}`),
+        distanceKm: sql.raw(`excluded.${userOfferStates.distanceKm.name}`),
+        lastSeenAt: now,
+      },
     })
     .run();
 }
@@ -267,6 +276,7 @@ export async function listCurrentOffersForUser(userId: number): Promise<Offer[]>
     .select({
       offer: offers,
       quantity: userOfferStates.currentQuantity,
+      distanceKm: userOfferStates.distanceKm,
       restaurantExternalId: restaurants.externalId,
       restaurantName: restaurants.name,
       restaurantLogoUrl: restaurants.logoUrl,
@@ -276,10 +286,10 @@ export async function listCurrentOffersForUser(userId: number): Promise<Offer[]>
     .innerJoin(offers, eq(userOfferStates.offerId, offers.id))
     .innerJoin(restaurants, eq(offers.restaurantId, restaurants.id))
     .where(and(eq(userOfferStates.userId, userId), gt(userOfferStates.currentQuantity, 0)))
-    .orderBy(restaurants.name, offers.name);
+    .orderBy(sql`${userOfferStates.distanceKm} IS NULL`, userOfferStates.distanceKm, restaurants.name, offers.name);
 
   return rows.map((row) => ({
-    ...toOffer(row.offer, row.restaurantExternalId, row.restaurantName, row.restaurantLogoUrl, row.restaurantAddress),
+    ...toOffer(row.offer, row.restaurantExternalId, row.restaurantName, row.restaurantLogoUrl, row.restaurantAddress, row.distanceKm),
     quantity: row.quantity,
   }));
 }

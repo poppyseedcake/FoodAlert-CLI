@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import Database from 'better-sqlite3';
 import { closeDatabase, openDatabaseSession, type DatabaseSession } from '../db/client.js';
 import type { OfferInput } from '../domain/types.js';
+import { listRestaurantsFromCurrentOffers } from '../restaurants/restaurantRepository.js';
+import { listCurrentOffersForUser } from './offerRepository.js';
 import { recordOfferSnapshot } from './offerSnapshot.js';
 
 let tempDir: string;
@@ -40,12 +42,12 @@ function makeOffer(overrides: Partial<OfferInput> = {}): OfferInput {
   };
 }
 
-function insertUser(sqlite: Database.Database): void {
+function insertUser(sqlite: Database.Database, id = 1, name = 'Test'): void {
   sqlite
     .prepare(
       'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
     )
-    .run(1, 'Test', 't@e.x', 'xxxxxxxx', 0, null, new Date().toISOString(), new Date().toISOString());
+    .run(id, name, `${name.toLowerCase()}@e.x`, 'xxxxxxxx', 0, null, new Date().toISOString(), new Date().toISOString());
 }
 
 describe('recordOfferSnapshot', () => {
@@ -82,7 +84,7 @@ describe('recordOfferSnapshot', () => {
     insertUser(sqlite);
 
     await recordOfferSnapshot(1, [makeOffer({ externalId: 'o1', restaurantExternalId: 'r1', quantity: 5 })]);
-    const changeSet = await recordOfferSnapshot(1, [makeOffer({ externalId: 'o1', restaurantExternalId: 'r1', quantity: 1 })]);
+    const changeSet = await recordOfferSnapshot(1, [makeOffer({ externalId: 'o1', restaurantExternalId: 'r1', quantity: 1, distanceKm: 2.5 })]);
 
     expect(changeSet.currentOffers).toEqual([
       expect.objectContaining({
@@ -91,7 +93,61 @@ describe('recordOfferSnapshot', () => {
         offerExistedBefore: true,
       }),
     ]);
-    expect(sqlite.prepare('SELECT current_quantity FROM user_offer_states').get()).toMatchObject({ current_quantity: 1 });
+    expect(sqlite.prepare('SELECT current_quantity, distance_km FROM user_offer_states').get()).toMatchObject({
+      current_quantity: 1,
+      distance_km: 2.5,
+    });
+  });
+
+  it('keeps offer distance per user for the same provider offer', async () => {
+    const sqlite = session.sqlite;
+    insertUser(sqlite, 1, 'Wroclaw');
+    insertUser(sqlite, 2, 'Warsaw');
+
+    await recordOfferSnapshot(1, [makeOffer({ externalId: 'shared', restaurantExternalId: 'r1', distanceKm: 8.5 })]);
+    await recordOfferSnapshot(2, [makeOffer({ externalId: 'shared', restaurantExternalId: 'r1', distanceKm: 1.25 })]);
+
+    await expect(listCurrentOffersForUser(1)).resolves.toEqual([
+      expect.objectContaining({ externalId: 'shared', distanceKm: 8.5 }),
+    ]);
+    await expect(listCurrentOffersForUser(2)).resolves.toEqual([
+      expect.objectContaining({ externalId: 'shared', distanceKm: 1.25 }),
+    ]);
+  });
+
+  it('lists current offers by user distance with unknown distances last', async () => {
+    const sqlite = session.sqlite;
+    insertUser(sqlite);
+
+    await recordOfferSnapshot(1, [
+      makeOffer({ externalId: 'far', restaurantExternalId: 'r2', restaurantName: 'Beta', name: 'Far', distanceKm: 7 }),
+      makeOffer({ externalId: 'unknown', restaurantExternalId: 'r1', restaurantName: 'Alpha', name: 'Unknown', distanceKm: null }),
+      makeOffer({ externalId: 'near', restaurantExternalId: 'r3', restaurantName: 'Gamma', name: 'Near', distanceKm: 1.5 }),
+    ]);
+
+    await expect(listCurrentOffersForUser(1)).resolves.toMatchObject([
+      { externalId: 'near', distanceKm: 1.5 },
+      { externalId: 'far', distanceKm: 7 },
+      { externalId: 'unknown', distanceKm: null },
+    ]);
+  });
+
+  it('lists restaurants from current offers by nearest user distance', async () => {
+    const sqlite = session.sqlite;
+    insertUser(sqlite);
+
+    await recordOfferSnapshot(1, [
+      makeOffer({ externalId: 'alpha-unknown', restaurantExternalId: 'alpha', restaurantName: 'Alpha', distanceKm: null }),
+      makeOffer({ externalId: 'beta-far', restaurantExternalId: 'beta', restaurantName: 'Beta', distanceKm: 8 }),
+      makeOffer({ externalId: 'beta-near', restaurantExternalId: 'beta', restaurantName: 'Beta', distanceKm: 2 }),
+      makeOffer({ externalId: 'gamma-mid', restaurantExternalId: 'gamma', restaurantName: 'Gamma', distanceKm: 3 }),
+    ]);
+
+    await expect(listRestaurantsFromCurrentOffers(1)).resolves.toMatchObject([
+      { externalId: 'beta', name: 'Beta' },
+      { externalId: 'gamma', name: 'Gamma' },
+      { externalId: 'alpha', name: 'Alpha' },
+    ]);
   });
 
   it('returns disappeared offer facts and removes vanished user offer states', async () => {

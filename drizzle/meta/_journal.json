@@ -15,6 +15,13 @@
       "when": 1780263285184,
       "tag": "0001_wakeful_umar",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1780695000506,
+      "tag": "0002_fine_war_machine",
+      "breakpoints": true
     }
   ]
 }

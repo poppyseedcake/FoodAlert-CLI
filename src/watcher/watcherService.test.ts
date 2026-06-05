@@ -237,10 +237,10 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
       .run(1, 'foodsi', 'r1', 'Test Rest', null, null, now, now, now);
     sqlite
       .prepare(
-        'INSERT INTO offers (id, provider, external_id, restaurant_id, name, description, current_quantity, unit_price, original_price, pickup_from, pickup_to, distance_km, last_seen_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO offers (id, provider, external_id, restaurant_id, name, description, current_quantity, unit_price, original_price, pickup_from, pickup_to, last_seen_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       )
-      .run(1, 'foodsi', 'o1', 1, 'Offer', null, 2, null, null, null, null, null, now, now, now);
-    sqlite.prepare('INSERT INTO user_offer_states (user_id, offer_id, current_quantity, last_seen_at) VALUES (?, ?, ?, ?)').run(1, 1, 2, now);
+      .run(1, 'foodsi', 'o1', 1, 'Offer', null, 2, null, null, null, null, now, now, now);
+    sqlite.prepare('INSERT INTO user_offer_states (user_id, offer_id, current_quantity, distance_km, last_seen_at) VALUES (?, ?, ?, ?, ?)').run(1, 1, 2, null, now);
     sqlite.prepare('INSERT INTO user_favorite_restaurants (user_id, restaurant_id, created_at) VALUES (?, ?, ?)').run(1, 1, now);
     sqlite.prepare('INSERT INTO user_ignored_restaurants (user_id, restaurant_id, created_at) VALUES (?, ?, ?)').run(1, 1, now);
 
