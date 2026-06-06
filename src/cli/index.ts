@@ -16,7 +16,7 @@ import { WatcherService } from '../watcher/watcherService.js';
 import { formatPickup, formatPrice } from '../utils/format.js';
 import { promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
 import { cliWorkflows, restaurantListLabel, type RestaurantListKind, type RestaurantSource } from './workflows.js';
-//
+
 type MainAction =
   | 'users'
   | 'run-once'
