@@ -31,7 +31,7 @@ type MainAction =
 
 const scheduler = new SchedulerService();
 let isShuttingDown = false;
-
+//
 async function shutdown(exitCode = 0): Promise<never> {
   if (isShuttingDown) {
     process.exit(exitCode);
