@@ -1,6 +1,6 @@
-# FoodAlert
+# FoodAlert - CLI
 
-FoodAlert tracks Foodsi offers for multiple local users and reports changes in current offer availability.
+FoodAlert - CLI tracks Foodsi offers for multiple local users and reports changes in current offer availability.
 
 ## Language
 

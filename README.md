@@ -1,6 +1,6 @@
-# FoodAlert
+# FoodAlert - CLI
 
-FoodAlert to proste CLI do śledzenia ofert z Foodsi nawet dla wielu użytkowników. Aplikacja zapisuje ostatni stan ofert w lokalnej bazie SQLite i wypisuje alerty, gdy pojawia się nowa oferta. Użytkownik może dodać restauracje do listy `favorites` i otrzymywać alerty o ofertach tylko z tych miejsc albo do listy `ignored` aby nigdy nie dostawać od nich ofert.
+FoodAlert - CLI to proste CLI do śledzenia ofert z Foodsi nawet dla wielu użytkowników. Aplikacja zapisuje ostatni stan ofert w lokalnej bazie SQLite i wypisuje alerty, gdy pojawia się nowa oferta. Użytkownik może dodać restauracje do listy `favorites` i otrzymywać alerty o ofertach tylko z tych miejsc albo do listy `ignored` aby nigdy nie dostawać od nich ofert.
 
 ![Główne menu](docs/assets/foodalert-main-menu.svg)
 

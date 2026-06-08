@@ -4,9 +4,9 @@
   <circle cx="62" cy="58" r="10" fill="#FB7185"/>
   <circle cx="92" cy="58" r="10" fill="#FBBF24"/>
   <circle cx="122" cy="58" r="10" fill="#34D399"/>
-  <text x="600" y="65" fill="#94A3B8" font-family="JetBrains Mono, monospace" font-size="24" text-anchor="middle">FoodAlert CLI</text>
+  <text x="600" y="65" fill="#94A3B8" font-family="JetBrains Mono, monospace" font-size="24" text-anchor="middle">FoodAlert - CLI</text>
 
-  <text x="68" y="126" fill="#E2E8F0" font-family="JetBrains Mono, monospace" font-size="28">FoodAlert CLI started. Default interval: 5 min.</text>
+  <text x="68" y="126" fill="#E2E8F0" font-family="JetBrains Mono, monospace" font-size="28">FoodAlert - CLI started. Default interval: 5 min.</text>
   <text x="68" y="174" fill="#A7F3D0" font-family="JetBrains Mono, monospace" font-size="28">[Jan] Fetched 25 offers.</text>
   <text x="68" y="228" fill="#E2E8F0" font-family="JetBrains Mono, monospace" font-size="28">? Offers</text>
 

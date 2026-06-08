@@ -315,11 +315,11 @@ function printStatus(): void {
 async function main(): Promise<void> {
   await initializeDatabase();
   const defaultInterval = await getDefaultWatchIntervalMinutes();
-  console.log(`FoodAlert CLI started. Default interval: ${defaultInterval} min.`);
+  console.log(`FoodAlert - CLI started. Default interval: ${defaultInterval} min.`);
 
   while (true) {
     const action = await select<MainAction>({
-      message: 'FoodAlert',
+      message: 'FoodAlert - CLI',
       choices: [
         { name: 'Users', value: 'users' },
         { name: 'Run once for user', value: 'run-once' },
