@@ -1,6 +1,6 @@
 # FoodAlert
 
-FoodAlert to proste CLI do śledzenia ofert z Foodsi dla wielu użytkowników. Aplikacja zapisuje ostatni stan ofert w lokalnej bazie SQLite i wypisuje alerty, gdy pojawia się nowa oferta, oferta wraca na stan albo zmienia się liczba sztuk.
+FoodAlert to proste CLI do śledzenia ofert z Foodsi nawet dla wielu użytkowników. Aplikacja zapisuje ostatni stan ofert w lokalnej bazie SQLite i wypisuje alerty, gdy pojawia się nowa oferta. Użytkownik może dodać restauracje do listy `favorites` i otrzymywać alerty o ofertach tylko z tych miejsc albo do listy `ignored` aby nigdy nie dostawać od nich ofert.
 
 ![Główne menu](docs/assets/foodalert-main-menu.svg)
 
@@ -33,12 +33,6 @@ npm run dev
 
 Przy pierwszym uruchomieniu aplikacja utworzy lokalną bazę `foodalert.sqlite` w katalogu projektu.
 
-Jeśli chcesz użyć innej ścieżki do bazy:
-
-```bash
-FOODALERT_DB_PATH=/sciezka/do/foodalert.sqlite npm run dev
-```
-
 ## Jak korzystać
 
 Po uruchomieniu zobaczysz interaktywne menu w terminalu.
@@ -57,49 +51,3 @@ Alerty pojawiają się bezpośrednio w konsoli. Aplikacja wykrywa:
 - powrót oferty na stan
 - wyprzedanie
 - zmianę liczby dostępnych sztuk
-
-## Najważniejsze komendy
-
-```bash
-npm run dev
-npm run build
-npm test
-npm run typecheck
-npm run verify
-```
-
-Migracje:
-
-```bash
-npm run db:generate
-npm run db:migrate
-```
-
-`npm run dev` uruchamia migracje automatycznie przy starcie.
-
-## Jak to jest zbudowane
-
-Projekt jest podzielony na kilka prostych warstw:
-
-- `src/cli` - menu i interakcja z użytkownikiem
-- `src/watcher`, `src/alerts`, `src/foodsi` - pobieranie ofert, wykrywanie zmian i planowanie cyklicznych sprawdzeń
-- `src/db`, `src/users`, `src/restaurants`, `src/offers` - zapis stanu w SQLite przez Drizzle ORM
-
-Najważniejszy przepływ wygląda tak:
-
-1. CLI wybiera użytkownika albo startuje watcher.
-2. `WatcherService` loguje się do Foodsi i pobiera oferty.
-3. Snapshot ofert trafia do SQLite.
-4. `Alert Derivation` porównuje nowy stan z poprzednim.
-5. Powiadomienia są wypisywane w konsoli.
-
-## Ograniczenia
-
-- hasła Foodsi są obecnie trzymane lokalnie w SQLite w postaci jawnej
-- integracja zależy od prywatnego API Foodsi i nagłówków mobilnej aplikacji
-- bez poprawnych danych logowania i dostępu do API fetch się nie powiedzie
-
-## Dalszy materiał
-
-- krótki opis domeny: [CONTEXT.md](CONTEXT.md)
-- decyzje architektoniczne: [docs/adr](docs/adr)
