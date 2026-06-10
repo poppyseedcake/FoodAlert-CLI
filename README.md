@@ -1,6 +1,6 @@
 # FoodAlert - CLI
 
-FoodAlert - CLI to proste CLI do śledzenia ofert z Foodsi nawet dla wielu użytkowników. Aplikacja zapisuje ostatni stan ofert w lokalnej bazie SQLite i wypisuje alerty, gdy pojawia się nowa oferta. Użytkownik może dodać restauracje do listy `favorites` i otrzymywać alerty o ofertach tylko z tych miejsc albo do listy `ignored` aby nigdy nie dostawać od nich ofert.
+FoodAlert - CLI is a simple CLI for tracking Foodsi offers, (support multiple users). The application saves the latest offer status in a local SQLite database and issues alerts.
 
 ![Główne menu](docs/assets/foodalert-main-menu.svg)
 
@@ -8,46 +8,46 @@ FoodAlert - CLI to proste CLI do śledzenia ofert z Foodsi nawet dla wielu użyt
 
 ![Przykładowe oferty](docs/assets/foodalert-offers-sample.svg)
 
-## Co robi aplikacja
+## Description
 
-- obsługuje wiele kont Foodsi w jednym CLI
-- pozwala uruchomić pojedynczy fetch albo cykliczne sprawdzanie ofert
-- zapisuje bieżące oferty per użytkownik
-- zgłasza zmiany dostępności ofert w konsoli
-- pozwala zarządzać listą ulubionych i ignorowanych restauracji
-- pozwala włączyć powiadomienia tylko dla ulubionych restauracji
+- Supports multiple Foodsi accounts in a single CLI
+- Allows you to run a single fetch or a recurring offer check
+- Saves current offers per user
+- Reports changes to offer availability in the console
+- Allows you to manage your list of favorite and ignored restaurants
+- Allows you to enable notifications only for your favorite restaurants
 
-## Szybki start
+## Quick Start
 
-Wymagania:
+Requirements:
 
 - Node.js 20+
 - npm
 
-Instalacja i start:
+Installation and start:
 
 ```bash
 npm install
 npm run dev
 ```
 
-Przy pierwszym uruchomieniu aplikacja utworzy lokalną bazę `foodalert.sqlite` w katalogu projektu.
+When you run the application for the first time, it will create a local `foodalert.sqlite` database in the project directory.
 
-## Jak korzystać
+## Usage
 
-Po uruchomieniu zobaczysz interaktywne menu w terminalu.
+Once launched, you'll see an interactive menu in the terminal.
 
-1. Wejdź w `Users` i dodaj konto Foodsi.
-2. Uruchom `Run once for user`, żeby pobrać pierwszy stan ofert.
-3. Wejdź w `Offers`, żeby zobaczyć zapisane aktualne oferty dla wybranego użytkownika.
-4. Wejdź w `Restaurants`, żeby dodać restauracje do `favorites` albo `ignored`.
-5. Wejdź w `Settings`, jeśli chcesz ustawić własny interwał sprawdzania albo włączyć tryb `only favorites`.
-6. Uruchom `Watch one user` albo `Watch all users`, żeby aplikacja sprawdzała oferty cyklicznie.
-7. Użyj `Status`, żeby podejrzeć aktywne watchery, i `Stop watchers`, żeby je zatrzymać.
+1. Go to `Users` and add a Foodsi account.
+2. Run `Run once for user` to retrieve the first offer status.
+3. Go to `Offers` to view the current saved offers for the selected user.
+4. Go to `Restaurants` to add restaurants to `favorites` or `ignored`.
+5. Go to `Settings` if you want to set a custom check interval or enable `favorites only` mode.
+6. Run `Watch one user` or `Watch all users` to have the application check offers periodically.
+7. Use `Status` to view active watchers and `Stop watchers` to stop them.
 
-Alerty pojawiają się bezpośrednio w konsoli. Aplikacja wykrywa:
+Alerts appear directly in the console. The app detects:
 
-- nową ofertę
-- powrót oferty na stan
-- wyprzedanie
-- zmianę liczby dostępnych sztuk
+- new offer
+- offer back in stock
+- sold out
+- change in available items
