@@ -2,7 +2,7 @@
 
 FoodAlert - CLI is a simple CLI for tracking Foodsi offers, (support multiple users). The application saves the latest offer status in a local SQLite database and issues alerts.
 
-![Główne menu](docs/assets/foodalert-main-menu.svg)
+![Główne menu](docs/assets/foodalert-run-once.gif)
 
 ![Dodawanie użytkownika](docs/assets/foodalert-add-user.svg)
 
