@@ -8,6 +8,9 @@ FoodAlert - CLI is a simple CLI for tracking Foodsi offers, (support multiple us
 
 ![Przykładowe oferty](docs/assets/foodalert-offers-sample.svg)
 
+Tired of constantly checking Foodsi to see if your favorite restaurant has added a new offer? Are others snapping up the best deals before you?
+FoodAlert solves this problem. By receiving real-time information about new food boxes, you'll never be outdone again.
+
 ## Description
 
 - Supports multiple Foodsi accounts in a single CLI
