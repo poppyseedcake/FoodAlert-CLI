@@ -16,6 +16,7 @@ import { WatcherService } from '../watcher/watcherService.js';
 import { ConsoleNotifier } from '../notifications/consoleNotifier.js';
 import { promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
 import { cliWorkflows, restaurantListLabel, type RestaurantListKind, type RestaurantSource } from './workflows.js';
+import { formatUserListEntry } from './userListFormat.js';
 
 type MainAction =
   | 'users'
@@ -81,10 +82,7 @@ async function usersMenu(): Promise<void> {
       console.log(`Deleted user ${user.name}.`);
     } else {
       const users = await listUsers();
-      for (const user of users) {
-        const interval = user.watchIntervalMinutes ? `${user.watchIntervalMinutes} min` : 'default';
-        console.log(`${user.id}. ${user.name} | ${user.foodsiEmail} | interval: ${interval} | only favorites: ${user.notifyOnlyFavorites}`);
-      }
+      users.forEach((user, index) => console.log(formatUserListEntry(index, user)));
     }
   }
 }
