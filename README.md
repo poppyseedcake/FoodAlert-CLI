@@ -56,3 +56,7 @@ Alerts appear directly in the console. The app detects:
 - offer back in stock
 - sold out
 - change in available items
+
+## Contributing
+
+If you'd like to contribute, please fork the repository and open a pull request to the `main` branch.
