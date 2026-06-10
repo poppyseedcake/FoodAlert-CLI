@@ -23,8 +23,6 @@ export class WatcherService {
     const changeSet = await recordOfferSnapshot(user.id, fetchedOffers);
     const events = await deriveAlertEventsForUser(user, changeSet);
 
-    for (const event of events) {
-      this.notifier.notify(display, event);
-    }
+    this.notifier.notifyAlerts(display, events);
   }
 }

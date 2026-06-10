@@ -31,8 +31,10 @@ class CapturingNotifier {
   events: Array<{ userId: number; name: string; event: unknown }> = [];
   errorCalls: Array<{ userId: number; name: string; message: string }> = [];
 
-  notify(user: { id: number; name: string }, event: unknown): void {
-    this.events.push({ userId: user.id, name: user.name, event });
+  notifyAlerts(user: { id: number; name: string }, events: unknown[]): void {
+    for (const event of events) {
+      this.events.push({ userId: user.id, name: user.name, event });
+    }
   }
   info(): void {}
   error(user: { id: number; name: string }, error: unknown): void {

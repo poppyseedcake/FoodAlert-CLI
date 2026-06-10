@@ -13,7 +13,7 @@ import {
 import { clearCurrentOffersForUser, listCurrentOffersForUser } from '../offers/offerRepository.js';
 import { SchedulerService } from '../watcher/schedulerService.js';
 import { WatcherService } from '../watcher/watcherService.js';
-import { formatPickup, formatPrice } from '../utils/format.js';
+import { ConsoleNotifier } from '../notifications/consoleNotifier.js';
 import { promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
 import { cliWorkflows, restaurantListLabel, type RestaurantListKind, type RestaurantSource } from './workflows.js';
 
@@ -30,6 +30,7 @@ type MainAction =
   | 'exit';
 
 const scheduler = new SchedulerService();
+const consoleNotifier = new ConsoleNotifier();
 let isShuttingDown = false;
 //
 async function shutdown(exitCode = 0): Promise<never> {
@@ -272,10 +273,7 @@ async function offersMenu(): Promise<void> {
       continue;
     }
 
-    for (const offer of offers) {
-      console.log(`${offer.restaurantName} - ${offer.name} (${offer.quantity} szt.)`);
-      console.log(`  ${formatPrice(offer.unitPrice)} / ${formatPrice(offer.originalPrice)} | odbior: ${formatPickup(offer.pickupFrom)} - ${formatPickup(offer.pickupTo)}`);
-    }
+    consoleNotifier.showCurrentOffers(user, offers);
   }
 }
 
