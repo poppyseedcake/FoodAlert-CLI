@@ -1,4 +1,6 @@
+import 'dotenv/config';
 import { confirm, select } from '@inquirer/prompts';
+import { randomUUID } from 'node:crypto';
 import type { Restaurant, UserProfile } from '../domain/types.js';
 import { providerIdentityLabel } from '../domain/providerIdentity.js';
 import { closeDatabase, initializeDatabase } from '../db/client.js';
@@ -7,8 +9,13 @@ import {
   getDefaultWatchIntervalMinutes,
   listUsers,
   setDefaultWatchIntervalMinutes,
+  setConsoleNotificationsEnabled,
+  setTelegramEnabled,
+  setTelegramPairingCode,
   setNotifyOnlyFavorites,
   setUserWatchInterval,
+  findUserByTelegramPairingCode,
+  setTelegramChatId,
 } from '../users/userRepository.js';
 import { clearCurrentOffersForUser, listCurrentOffersForUser } from '../offers/offerRepository.js';
 import { SchedulerService } from '../watcher/schedulerService.js';
@@ -17,6 +24,9 @@ import { ConsoleNotifier } from '../notifications/consoleNotifier.js';
 import { promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
 import { cliWorkflows, restaurantListLabel, type RestaurantListKind, type RestaurantSource } from './workflows.js';
 import { formatUserListEntry } from './userListFormat.js';
+import { TelegramBotClient } from '../telegram/telegramClient.js';
+import { TelegramNotifier } from '../telegram/telegramNotifier.js';
+import { TelegramPairingService } from '../telegram/telegramPairingService.js';
 
 type MainAction =
   | 'users'
@@ -30,17 +40,56 @@ type MainAction =
   | 'settings'
   | 'exit';
 
-const scheduler = new SchedulerService();
 const consoleNotifier = new ConsoleNotifier();
+const telegramBotToken = process.env.FOODALERT_TELEGRAM_BOT_TOKEN ?? null;
+const telegramClient = telegramBotToken ? new TelegramBotClient(telegramBotToken) : null;
+const telegramNotifier = telegramClient ? new TelegramNotifier(telegramClient) : null;
+const watcher = new WatcherService(undefined, consoleNotifier, telegramNotifier);
+const schedulerWithNotifier = new SchedulerService(watcher);
 let isShuttingDown = false;
-//
+let stopTelegramPolling: (() => void) | null = null;
+
+function generateTelegramPairingCode(): string {
+  return randomUUID().replace(/-/g, '').slice(0, 12);
+}
+
+async function startTelegramPolling(): Promise<void> {
+  if (!telegramClient) {
+    return;
+  }
+
+  const pairingService = new TelegramPairingService(telegramClient, {
+    findUserByTelegramPairingCode,
+    setTelegramChatId,
+    setTelegramEnabled,
+    setTelegramPairingCode,
+  });
+
+  let running = true;
+  stopTelegramPolling = () => {
+    running = false;
+  };
+
+  void (async () => {
+    while (running) {
+      try {
+        await pairingService.pollOnce();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.error(`[Telegram] Error: ${message}`);
+      }
+    }
+  })();
+}
+
 async function shutdown(exitCode = 0): Promise<never> {
   if (isShuttingDown) {
     process.exit(exitCode);
   }
 
   isShuttingDown = true;
-  scheduler.stop();
+  stopTelegramPolling?.();
+  schedulerWithNotifier.stop();
   closeDatabase();
   process.exit(exitCode);
 }
@@ -78,7 +127,7 @@ async function usersMenu(): Promise<void> {
         default: false,
       });
       if (!confirmed) continue;
-      await cliWorkflows.deleteUserProfile(user.id, scheduler);
+      await cliWorkflows.deleteUserProfile(user.id, schedulerWithNotifier);
       console.log(`Deleted user ${user.name}.`);
     } else {
       const users = await listUsers();
@@ -96,6 +145,9 @@ async function settingsMenu(): Promise<void> {
         { name: 'Set user interval', value: 'user' },
         { name: 'Clear user interval', value: 'clear-user' },
         { name: 'Toggle only favorites for user', value: 'favorites-only' },
+        { name: 'Toggle console notifications for user', value: 'console-notifications' },
+        { name: 'Toggle Telegram notifications for user', value: 'telegram-notifications' },
+        { name: 'Generate Telegram pairing code', value: 'telegram-pairing' },
         { name: 'Back', value: 'back' },
       ],
     });
@@ -119,6 +171,25 @@ async function settingsMenu(): Promise<void> {
     } else if (action === 'clear-user') {
       await setUserWatchInterval(user.id, null);
       console.log('User interval cleared.');
+    } else if (action === 'console-notifications') {
+      const enabled = await confirm({
+        message: `[${user.name}] Current: ${user.consoleNotificationsEnabled ? 'ON' : 'OFF'} — Show notifications in console?`,
+        default: !user.consoleNotificationsEnabled,
+      });
+      await setConsoleNotificationsEnabled(user.id, enabled);
+      console.log(`Console notifications: ${enabled ? 'ON' : 'OFF'}.`);
+    } else if (action === 'telegram-notifications') {
+      const enabled = await confirm({
+        message: `[${user.name}] Current: ${user.telegramEnabled ? 'ON' : 'OFF'} — Send notifications to Telegram?`,
+        default: !user.telegramEnabled,
+      });
+      await setTelegramEnabled(user.id, enabled);
+      console.log(`Telegram notifications: ${enabled ? 'ON' : 'OFF'}.`);
+    } else if (action === 'telegram-pairing') {
+      const code = generateTelegramPairingCode();
+      await setTelegramPairingCode(user.id, code);
+      console.log(`Telegram pairing code for ${user.name}: ${code}`);
+      console.log(`Ask the user to send /start ${code} to @myfoodalert_bot.`);
     } else {
       const currentStatus = user.notifyOnlyFavorites ? 'ON' : 'OFF';
       const enabled = await confirm({
@@ -280,7 +351,7 @@ async function runOnce(): Promise<void> {
   if (!user) return;
 
   try {
-    await new WatcherService().runOnce(user);
+    await watcher.runOnce(user);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error(`[${user.name}] Error: ${message}`);
@@ -290,11 +361,11 @@ async function runOnce(): Promise<void> {
 async function watchUser(): Promise<void> {
   const user = await selectUser(await listUsers());
   if (!user) return;
-  await scheduler.startForUser(user);
+  await schedulerWithNotifier.startForUser(user);
 }
 
 function printStatus(): void {
-  const entries = scheduler.getStatus();
+  const entries = schedulerWithNotifier.getStatus();
   if (entries.length === 0) {
     console.log('No users registered.');
     return;
@@ -310,6 +381,7 @@ function printStatus(): void {
 
 async function main(): Promise<void> {
   await initializeDatabase();
+  await startTelegramPolling();
   const defaultInterval = await getDefaultWatchIntervalMinutes();
   console.log(`FoodAlert - CLI started. Default interval: ${defaultInterval} min.`);
 
@@ -345,10 +417,10 @@ async function main(): Promise<void> {
         await watchUser();
         break;
       case 'watch-all':
-        await scheduler.startForAllUsers();
+        await schedulerWithNotifier.startForAllUsers();
         break;
       case 'stop-watchers':
-        scheduler.stop();
+        schedulerWithNotifier.stop();
         console.log('Watchers stopped.');
         break;
       case 'status':
@@ -370,13 +442,15 @@ async function main(): Promise<void> {
 main().catch((error) => {
   if (error instanceof Error && error.name === 'ExitPromptError') {
     console.log('\nBye.');
-    scheduler.stop();
+    stopTelegramPolling?.();
+    schedulerWithNotifier.stop();
     closeDatabase();
     return;
   }
 
   console.error(error);
-  scheduler.stop();
+  stopTelegramPolling?.();
+  schedulerWithNotifier.stop();
   closeDatabase();
   process.exitCode = 1;
 });

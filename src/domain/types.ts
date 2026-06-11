@@ -7,6 +7,10 @@ export type UserProfile = {
   foodsiPassword: string;
   notifyOnlyFavorites: boolean;
   watchIntervalMinutes: number | null;
+  telegramEnabled: boolean;
+  telegramChatId: string | null;
+  telegramPairingCode: string | null;
+  consoleNotificationsEnabled: boolean;
 };
 
 export type UserDisplay = {

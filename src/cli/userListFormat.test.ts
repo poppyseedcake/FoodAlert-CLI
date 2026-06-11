@@ -9,10 +9,16 @@ const user = (id: number, name: string): UserProfile => ({
   foodsiPassword: 'xxxxxxxx',
   notifyOnlyFavorites: false,
   watchIntervalMinutes: null,
+  telegramEnabled: false,
+  telegramChatId: null,
+  telegramPairingCode: null,
+  consoleNotificationsEnabled: true,
 });
 
 describe('formatUserListEntry', () => {
   it('numbers users by visible position instead of database id', () => {
-    expect(formatUserListEntry(0, user(4, 'Woj'))).toBe('1. Woj | woj@e.x | interval: default | only favorites: false');
+    expect(formatUserListEntry(0, user(4, 'Woj'))).toBe(
+      '1. Woj | woj@e.x | interval: default | only favorites: false | console: on | telegram: off',
+    );
   });
 });

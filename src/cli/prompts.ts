@@ -81,6 +81,10 @@ export async function promptNewUser(): Promise<Omit<UserProfile, 'id'>> {
     foodsiPassword,
     notifyOnlyFavorites: false,
     watchIntervalMinutes: null,
+    telegramEnabled: false,
+    telegramChatId: null,
+    telegramPairingCode: null,
+    consoleNotificationsEnabled: true,
   };
 }
 

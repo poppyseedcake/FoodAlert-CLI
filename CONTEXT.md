@@ -4,6 +4,10 @@ FoodAlert - CLI tracks Foodsi offers for multiple local users and reports change
 
 ## Language
 
+**User Profile**:
+A single Foodsi account tracked by the CLI, identified by its Foodsi email and password. Each User Profile owns its own notification policy, Alert Delivery preferences, and restaurant lists.
+_Avoid_: Account, profile, user
+
 **Offer Snapshot**:
 One user's current fetched view of provider offers during a watcher run. Recording an Offer Snapshot updates restaurant, offer, and user offer state records, then identifies previously seen offers that disappeared from the current fetch.
 _Avoid_: Offer intake, fetched offer batch
@@ -15,6 +19,14 @@ _Avoid_: Global offer state, shared offer distance
 **Alert Derivation**:
 The rules that turn an Offer Snapshot change set and a user's restaurant notification policy into Alert Events. Alert Derivation owns new offer, re-stocked, stock-change, sold-out, favorite-only, and ignored-restaurant decisions.
 _Avoid_: Offer diffing, watcher alert rules
+
+**Alert Delivery**:
+The per-user routing of Alert Events to output channels such as the console or Telegram. Alert Delivery decides where already-derived alerts are sent.
+_Avoid_: Alert derivation, transport plumbing
+
+**Telegram Connection**:
+A User Profile's linked Telegram chat for receiving Alert Events. A Telegram Connection is established when a Telegram chat proves ownership of a pairing code generated for that User Profile.
+_Avoid_: Telegram account, Telegram user
 
 **Database Session**:
 The runtime database lifecycle for one active SQLite database. A Database Session owns path selection, connection pragmas, migration, default settings seed, the active Drizzle database handle, and teardown.

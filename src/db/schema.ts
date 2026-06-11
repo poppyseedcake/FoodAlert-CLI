@@ -13,6 +13,10 @@ export const users = sqliteTable('users', {
   foodsiPassword: text('foodsi_password').notNull(),
   notifyOnlyFavorites: integer('notify_only_favorites', { mode: 'boolean' }).notNull().default(false),
   watchIntervalMinutes: integer('watch_interval_minutes'),
+  telegramEnabled: integer('telegram_enabled', { mode: 'boolean' }).notNull().default(false),
+  telegramChatId: text('telegram_chat_id'),
+  telegramPairingCode: text('telegram_pairing_code'),
+  consoleNotificationsEnabled: integer('console_notifications_enabled', { mode: 'boolean' }).notNull().default(true),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at').notNull(),
 });

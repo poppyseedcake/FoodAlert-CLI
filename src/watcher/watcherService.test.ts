@@ -43,6 +43,16 @@ class CapturingNotifier {
   }
 }
 
+class CapturingTelegramNotifier {
+  events: Array<{ userId: number; name: string; event: unknown }> = [];
+
+  async notifyAlerts(user: { id: number; name: string }, events: unknown[]): Promise<void> {
+    for (const event of events) {
+      this.events.push({ userId: user.id, name: user.name, event });
+    }
+  }
+}
+
 function makeOffer(overrides: Partial<OfferInput> = {}): OfferInput {
   return {
     provider: 'foodsi',
@@ -71,6 +81,10 @@ function makeUser(): UserProfile {
     foodsiPassword: 'xxxxxxxx',
     notifyOnlyFavorites: false,
     watchIntervalMinutes: null,
+    telegramEnabled: false,
+    telegramChatId: null,
+    telegramPairingCode: null,
+    consoleNotificationsEnabled: true,
   };
 }
 
@@ -252,5 +266,30 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
     expect(sqlite.prepare('SELECT * FROM user_offer_states WHERE user_id = ?').get(1)).toBeUndefined();
     expect(sqlite.prepare('SELECT * FROM user_favorite_restaurants WHERE user_id = ?').get(1)).toBeUndefined();
     expect(sqlite.prepare('SELECT * FROM user_ignored_restaurants WHERE user_id = ?').get(1)).toBeUndefined();
+  });
+
+  it('routes alerts to Telegram when console notifications are disabled', async () => {
+    const sqlite = session.sqlite;
+    sqlite
+      .prepare(
+        'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, telegram_enabled, telegram_chat_id, telegram_pairing_code, console_notifications_enabled, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(1, 'Test', 't@e.x', 'xxxxxxxx', 0, null, 1, '123456', null, 0, new Date().toISOString(), new Date().toISOString());
+
+    const offersList = [makeOffer({ externalId: 'o1', restaurantExternalId: 'r1', quantity: 5 })];
+    const consoleNotifier = new CapturingNotifier();
+    const telegramNotifier = new CapturingTelegramNotifier();
+    const watcher = new (WatcherService as any)(new MockFoodsiClient(offersList) as never, consoleNotifier as never, telegramNotifier as never);
+
+    await watcher.runOnce({
+      ...makeUser(),
+      telegramEnabled: true,
+      telegramChatId: '123456',
+      consoleNotificationsEnabled: false,
+    });
+
+    expect(consoleNotifier.events).toHaveLength(0);
+    expect(telegramNotifier.events).toHaveLength(1);
+    expect(telegramNotifier.events[0].event).toMatchObject({ type: 'new-offer' });
   });
 });

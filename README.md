@@ -18,7 +18,7 @@ FoodAlert solves this problem. By receiving real-time information about new food
 - Supports multiple Foodsi accounts in a single CLI
 - Allows you to run a single fetch or a recurring offer check
 - Saves current offers per user
-- Reports changes to offer availability in the console
+- Reports changes to offer availability in the console or via Telegram
 - Allows you to manage your list of favorite and ignored restaurants
 - Allows you to enable notifications only for your favorite restaurants
 
@@ -28,11 +28,14 @@ Requirements:
 
 - Node.js 20+
 - npm
+- Telegram bot token in `FOODALERT_TELEGRAM_BOT_TOKEN` if you want Telegram alerts
 
 Installation and start:
 
 ```bash
 npm install
+cp .env.example .env
+# Set FOODALERT_TELEGRAM_BOT_TOKEN in .env
 npm run dev
 ```
 
@@ -49,6 +52,12 @@ Once launched, you'll see an interactive menu in the terminal.
 5. Go to `Settings` if you want to set a custom check interval or enable `favorites only` mode.
 6. Run `Watch one user` or `Watch all users` to have the application check offers periodically.
 7. Use `Status` to view active watchers and `Stop watchers` to stop them.
+
+Telegram alerts:
+
+1. In `Settings`, generate a Telegram pairing code for a user.
+2. Ask that user to open `@myfoodalert_bot` and send `/start <pairing-code>`.
+3. Make sure the app is running so it can receive the Telegram update and store the chat link.
 
 Alerts appear directly in the console. The app detects:
 

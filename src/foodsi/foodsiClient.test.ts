@@ -10,6 +10,10 @@ function makeUser(): UserProfile {
     foodsiPassword: 'xxxxxxxx',
     notifyOnlyFavorites: false,
     watchIntervalMinutes: null,
+    telegramEnabled: false,
+    telegramChatId: null,
+    telegramPairingCode: null,
+    consoleNotificationsEnabled: true,
   };
 }
 

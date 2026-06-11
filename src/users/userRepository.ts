@@ -14,6 +14,10 @@ function toUserProfile(row: UserRow): UserProfile {
     foodsiPassword: row.foodsiPassword,
     notifyOnlyFavorites: row.notifyOnlyFavorites,
     watchIntervalMinutes: row.watchIntervalMinutes,
+    telegramEnabled: row.telegramEnabled,
+    telegramChatId: row.telegramChatId,
+    telegramPairingCode: row.telegramPairingCode,
+    consoleNotificationsEnabled: row.consoleNotificationsEnabled,
   };
 }
 
@@ -48,6 +52,10 @@ export async function createUser(input: Omit<UserProfile, 'id'>): Promise<UserPr
       foodsiPassword: input.foodsiPassword,
       notifyOnlyFavorites: input.notifyOnlyFavorites,
       watchIntervalMinutes: input.watchIntervalMinutes,
+      telegramEnabled: input.telegramEnabled ?? false,
+      telegramChatId: input.telegramChatId ?? null,
+      telegramPairingCode: input.telegramPairingCode ?? null,
+      consoleNotificationsEnabled: input.consoleNotificationsEnabled ?? true,
       createdAt: now,
       updatedAt: now,
     })
@@ -69,6 +77,33 @@ export async function deleteUser(userId: number): Promise<void> {
 export async function setNotifyOnlyFavorites(userId: number, enabled: boolean): Promise<void> {
   const db = getDb();
   await db.update(users).set({ notifyOnlyFavorites: enabled, updatedAt: new Date().toISOString() }).where(eq(users.id, userId));
+}
+
+export async function setConsoleNotificationsEnabled(userId: number, enabled: boolean): Promise<void> {
+  const db = getDb();
+  await db.update(users).set({ consoleNotificationsEnabled: enabled, updatedAt: new Date().toISOString() }).where(eq(users.id, userId));
+}
+
+export async function setTelegramEnabled(userId: number, enabled: boolean): Promise<void> {
+  const db = getDb();
+  await db.update(users).set({ telegramEnabled: enabled, updatedAt: new Date().toISOString() }).where(eq(users.id, userId));
+}
+
+export async function setTelegramChatId(userId: number, chatId: string | null): Promise<void> {
+  const db = getDb();
+  await db.update(users).set({ telegramChatId: chatId, updatedAt: new Date().toISOString() }).where(eq(users.id, userId));
+}
+
+export async function setTelegramPairingCode(userId: number, code: string | null): Promise<void> {
+  const db = getDb();
+  await db.update(users).set({ telegramPairingCode: code, updatedAt: new Date().toISOString() }).where(eq(users.id, userId));
+}
+
+export async function findUserByTelegramPairingCode(code: string): Promise<UserProfile | null> {
+  const db = getDb();
+  const rows = await db.select().from(users).where(eq(users.telegramPairingCode, code)).limit(1);
+  const row = rows[0];
+  return row ? toUserProfile(row) : null;
 }
 
 export async function setUserWatchInterval(userId: number, minutes: number | null): Promise<void> {
