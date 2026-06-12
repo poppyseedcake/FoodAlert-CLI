@@ -13,6 +13,9 @@ function toUserProfile(row: UserRow): UserProfile {
     foodsiEmail: row.foodsiEmail,
     foodsiPassword: row.foodsiPassword,
     notifyOnlyFavorites: row.notifyOnlyFavorites,
+    notifyReStocked: row.notifyReStocked,
+    notifyStockChange: row.notifyStockChange,
+    notifySoldOut: row.notifySoldOut,
     watchIntervalMinutes: row.watchIntervalMinutes,
     telegramEnabled: row.telegramEnabled,
     telegramChatId: row.telegramChatId,
@@ -51,6 +54,9 @@ export async function createUser(input: Omit<UserProfile, 'id'>): Promise<UserPr
       foodsiEmail: input.foodsiEmail,
       foodsiPassword: input.foodsiPassword,
       notifyOnlyFavorites: input.notifyOnlyFavorites,
+      notifyReStocked: input.notifyReStocked ?? true,
+      notifyStockChange: input.notifyStockChange ?? false,
+      notifySoldOut: input.notifySoldOut ?? false,
       watchIntervalMinutes: input.watchIntervalMinutes,
       telegramEnabled: input.telegramEnabled ?? false,
       telegramChatId: input.telegramChatId ?? null,
@@ -77,6 +83,17 @@ export async function deleteUser(userId: number): Promise<void> {
 export async function setNotifyOnlyFavorites(userId: number, enabled: boolean): Promise<void> {
   const db = getDb();
   await db.update(users).set({ notifyOnlyFavorites: enabled, updatedAt: new Date().toISOString() }).where(eq(users.id, userId));
+}
+
+export async function setAlertPolicy(
+  userId: number,
+  policy: Pick<UserProfile, 'notifyReStocked' | 'notifyStockChange' | 'notifySoldOut'>,
+): Promise<void> {
+  const db = getDb();
+  await db
+    .update(users)
+    .set({ ...policy, updatedAt: new Date().toISOString() })
+    .where(eq(users.id, userId));
 }
 
 export async function setConsoleNotificationsEnabled(userId: number, enabled: boolean): Promise<void> {

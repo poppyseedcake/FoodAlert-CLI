@@ -3,6 +3,31 @@ import { DEFAULT_WATCH_INTERVAL_MINUTES, MIN_WATCH_INTERVAL_MINUTES } from '../d
 import { providerIdentityLabel } from '../domain/providerIdentity.js';
 import type { Restaurant, UserProfile } from '../domain/types.js';
 
+export type OptionalAlertCategory = 're-stocked' | 'stock-change' | 'sold-out';
+export type AlertPolicyPreferences = Pick<UserProfile, 'notifyReStocked' | 'notifyStockChange' | 'notifySoldOut'>;
+
+export function alertPolicyFromCategories(categories: OptionalAlertCategory[]): AlertPolicyPreferences {
+  const selected = new Set(categories);
+  return {
+    notifyReStocked: selected.has('re-stocked'),
+    notifyStockChange: selected.has('stock-change'),
+    notifySoldOut: selected.has('sold-out'),
+  };
+}
+
+export async function promptAlertPolicy(user: UserProfile): Promise<AlertPolicyPreferences> {
+  const categories = await checkbox<OptionalAlertCategory>({
+    message: 'New offers are always enabled. Choose additional alert categories',
+    choices: [
+      { name: 'Re-stocked', value: 're-stocked', checked: user.notifyReStocked },
+      { name: 'Stock quantity changes', value: 'stock-change', checked: user.notifyStockChange },
+      { name: 'Sold out', value: 'sold-out', checked: user.notifySoldOut },
+    ],
+  });
+
+  return alertPolicyFromCategories(categories);
+}
+
 export async function selectUser(users: UserProfile[]): Promise<UserProfile | null> {
   if (users.length === 0) {
     console.log('No users found.');
@@ -80,6 +105,9 @@ export async function promptNewUser(): Promise<Omit<UserProfile, 'id'>> {
     foodsiEmail: foodsiEmail.trim(),
     foodsiPassword,
     notifyOnlyFavorites: false,
+    notifyReStocked: true,
+    notifyStockChange: false,
+    notifySoldOut: false,
     watchIntervalMinutes: null,
     telegramEnabled: false,
     telegramChatId: null,

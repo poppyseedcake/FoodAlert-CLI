@@ -80,6 +80,9 @@ function makeUser(): UserProfile {
     foodsiEmail: 't@e.x',
     foodsiPassword: 'xxxxxxxx',
     notifyOnlyFavorites: false,
+    notifyReStocked: true,
+    notifyStockChange: true,
+    notifySoldOut: true,
     watchIntervalMinutes: null,
     telegramEnabled: false,
     telegramChatId: null,
@@ -291,5 +294,41 @@ describe('WatcherService.runOnce (sync transaction path)', () => {
     expect(consoleNotifier.events).toHaveLength(0);
     expect(telegramNotifier.events).toHaveLength(1);
     expect(telegramNotifier.events[0].event).toMatchObject({ type: 'new-offer' });
+  });
+
+  it('updates offer state without replaying stock changes suppressed for every delivery channel', async () => {
+    const sqlite = session.sqlite;
+    sqlite
+      .prepare(
+        'INSERT INTO users (id, name, foodsi_email, foodsi_password, notify_only_favorites, watch_interval_minutes, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      )
+      .run(1, 'Test', 't@e.x', 'xxxxxxxx', 0, null, new Date().toISOString(), new Date().toISOString());
+
+    const enabledUser = {
+      ...makeUser(),
+      telegramEnabled: true,
+      telegramChatId: '123456',
+    };
+    await new WatcherService(
+      new MockFoodsiClient([makeOffer({ quantity: 2 })]) as never,
+      new CapturingNotifier() as never,
+    ).runOnce(enabledUser);
+
+    const consoleNotifier = new CapturingNotifier();
+    const telegramNotifier = new CapturingTelegramNotifier();
+    await new WatcherService(
+      new MockFoodsiClient([makeOffer({ quantity: 5 })]) as never,
+      consoleNotifier as never,
+      telegramNotifier as never,
+    ).runOnce({ ...enabledUser, notifyStockChange: false });
+
+    await new WatcherService(
+      new MockFoodsiClient([makeOffer({ quantity: 5 })]) as never,
+      consoleNotifier as never,
+      telegramNotifier as never,
+    ).runOnce(enabledUser);
+
+    expect(consoleNotifier.events).toEqual([]);
+    expect(telegramNotifier.events).toEqual([]);
   });
 });

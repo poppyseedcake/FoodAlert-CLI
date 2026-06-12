@@ -8,6 +8,9 @@ const user = (id: number, name: string): UserProfile => ({
   foodsiEmail: `${name.toLowerCase()}@e.x`,
   foodsiPassword: 'xxxxxxxx',
   notifyOnlyFavorites: false,
+  notifyReStocked: true,
+  notifyStockChange: true,
+  notifySoldOut: true,
   watchIntervalMinutes: null,
   telegramEnabled: false,
   telegramChatId: null,
@@ -18,7 +21,7 @@ const user = (id: number, name: string): UserProfile => ({
 describe('formatUserListEntry', () => {
   it('numbers users by visible position instead of database id', () => {
     expect(formatUserListEntry(0, user(4, 'Woj'))).toBe(
-      '1. Woj | woj@e.x | interval: default | only favorites: false | console: on | telegram: off',
+      '1. Woj | woj@e.x | interval: default | only favorites: false | alerts: new, re-stocked, stock-change, sold-out | console: on | telegram: off',
     );
   });
 });

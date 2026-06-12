@@ -8,6 +8,7 @@ import {
   createUser,
   getDefaultWatchIntervalMinutes,
   listUsers,
+  setAlertPolicy,
   setDefaultWatchIntervalMinutes,
   setConsoleNotificationsEnabled,
   setTelegramEnabled,
@@ -21,7 +22,7 @@ import { clearCurrentOffersForUser, listCurrentOffersForUser } from '../offers/o
 import { SchedulerService } from '../watcher/schedulerService.js';
 import { WatcherService } from '../watcher/watcherService.js';
 import { ConsoleNotifier } from '../notifications/consoleNotifier.js';
-import { promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
+import { promptAlertPolicy, promptMinutes, promptNewUser, selectRestaurants, selectUser } from './prompts.js';
 import { cliWorkflows, restaurantListLabel, type RestaurantListKind, type RestaurantSource } from './workflows.js';
 import { formatUserListEntry } from './userListFormat.js';
 import { TelegramBotClient } from '../telegram/telegramClient.js';
@@ -145,6 +146,7 @@ async function settingsMenu(): Promise<void> {
         { name: 'Set user interval', value: 'user' },
         { name: 'Clear user interval', value: 'clear-user' },
         { name: 'Toggle only favorites for user', value: 'favorites-only' },
+        { name: 'Configure Alert Policy for user', value: 'alert-policy' },
         { name: 'Toggle console notifications for user', value: 'console-notifications' },
         { name: 'Toggle Telegram notifications for user', value: 'telegram-notifications' },
         { name: 'Generate Telegram pairing code', value: 'telegram-pairing' },
@@ -171,6 +173,9 @@ async function settingsMenu(): Promise<void> {
     } else if (action === 'clear-user') {
       await setUserWatchInterval(user.id, null);
       console.log('User interval cleared.');
+    } else if (action === 'alert-policy') {
+      await setAlertPolicy(user.id, await promptAlertPolicy(user));
+      console.log('Alert Policy updated. New offers are always enabled.');
     } else if (action === 'console-notifications') {
       const enabled = await confirm({
         message: `[${user.name}] Current: ${user.consoleNotificationsEnabled ? 'ON' : 'OFF'} — Show notifications in console?`,

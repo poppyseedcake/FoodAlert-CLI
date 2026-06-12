@@ -5,7 +5,7 @@ FoodAlert - CLI tracks Foodsi offers for multiple local users and reports change
 ## Language
 
 **User Profile**:
-A single Foodsi account tracked by the CLI, identified by its Foodsi email and password. Each User Profile owns its own notification policy, Alert Delivery preferences, and restaurant lists.
+A single Foodsi account tracked by the CLI, identified by its Foodsi email and password. Each User Profile owns its own Alert Policy, Alert Delivery preferences, and restaurant lists.
 _Avoid_: Account, profile, user
 
 **Offer Snapshot**:
@@ -16,8 +16,12 @@ _Avoid_: Offer intake, fetched offer batch
 The user-specific facts remembered for a provider offer from that user's latest Offer Snapshot. User Offer State owns per-user availability and proximity values that can differ between users for the same provider offer. When user-specific offer views are ordered by proximity, known distances come before unknown distances.
 _Avoid_: Global offer state, shared offer distance
 
+**Alert Policy**:
+The per-user rules determining which Alert Event categories are relevant, shared by every Alert Delivery channel. New-offer events are always relevant, while re-stocked, stock-change, and sold-out events can each be enabled independently.
+_Avoid_: Per-channel alert filters, notification type settings
+
 **Alert Derivation**:
-The rules that turn an Offer Snapshot change set and a user's restaurant notification policy into Alert Events. Alert Derivation owns new offer, re-stocked, stock-change, sold-out, favorite-only, and ignored-restaurant decisions.
+The rules that turn an Offer Snapshot change set and a user's Alert Policy into Alert Events. Alert Derivation owns new offer, re-stocked, stock-change, sold-out, favorite-only, and ignored-restaurant decisions.
 _Avoid_: Offer diffing, watcher alert rules
 
 **Alert Delivery**:

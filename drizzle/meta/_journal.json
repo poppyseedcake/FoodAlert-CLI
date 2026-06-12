@@ -29,6 +29,13 @@
       "when": 1781191500000,
       "tag": "0003_telegram_alert_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1781301531493,
+      "tag": "0004_young_boomerang",
+      "breakpoints": true
     }
   ]
 }

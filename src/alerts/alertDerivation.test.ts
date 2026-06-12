@@ -27,12 +27,18 @@ function derive(
   changeSet: OfferSnapshotChangeSet,
   policy: {
     notifyOnlyFavorites?: boolean;
+    notifyReStocked?: boolean;
+    notifyStockChange?: boolean;
+    notifySoldOut?: boolean;
     favoriteRestaurantIds?: number[];
     ignoredRestaurantIds?: number[];
   } = {},
 ) {
   return deriveAlertEvents(changeSet, {
     notifyOnlyFavorites: policy.notifyOnlyFavorites ?? false,
+    notifyReStocked: policy.notifyReStocked ?? true,
+    notifyStockChange: policy.notifyStockChange ?? true,
+    notifySoldOut: policy.notifySoldOut ?? true,
     favoriteRestaurantIds: new Set(policy.favoriteRestaurantIds ?? []),
     ignoredRestaurantIds: new Set(policy.ignoredRestaurantIds ?? []),
   });
@@ -124,5 +130,77 @@ describe('deriveAlertEvents', () => {
         { notifyOnlyFavorites: true, favoriteRestaurantIds: [1] },
       ),
     ).toEqual([{ type: 'new-offer', offer: favoriteOffer, previousQuantity: 0, currentQuantity: 3 }]);
+  });
+
+  it('keeps new offers eligible when re-stocked alerts are disabled', () => {
+    const newOffer = makeOffer({ externalId: 'new', quantity: 3 });
+
+    expect(
+      derive(
+        {
+          currentOffers: [
+            { offer: newOffer, restaurantId: 1, previousQuantity: 0, offerExistedBefore: false },
+            {
+              offer: makeOffer({ externalId: 'restocked', quantity: 2 }),
+              restaurantId: 1,
+              previousQuantity: 0,
+              offerExistedBefore: true,
+            },
+          ],
+          disappearedOffers: [],
+        },
+        { notifyReStocked: false },
+      ),
+    ).toEqual([{ type: 'new-offer', offer: newOffer, previousQuantity: 0, currentQuantity: 3 }]);
+  });
+
+  it('suppresses positive quantity increases and decreases when stock-change alerts are disabled', () => {
+    expect(
+      derive(
+        {
+          currentOffers: [
+            {
+              offer: makeOffer({ externalId: 'increase', quantity: 5 }),
+              restaurantId: 1,
+              previousQuantity: 2,
+              offerExistedBefore: true,
+            },
+            {
+              offer: makeOffer({ externalId: 'decrease', quantity: 2 }),
+              restaurantId: 1,
+              previousQuantity: 5,
+              offerExistedBefore: true,
+            },
+          ],
+          disappearedOffers: [],
+        },
+        { notifyStockChange: false },
+      ),
+    ).toEqual([]);
+  });
+
+  it('suppresses explicit and disappeared sold-out offers when sold-out alerts are disabled', () => {
+    expect(
+      derive(
+        {
+          currentOffers: [
+            {
+              offer: makeOffer({ externalId: 'explicit', quantity: 0 }),
+              restaurantId: 1,
+              previousQuantity: 2,
+              offerExistedBefore: true,
+            },
+          ],
+          disappearedOffers: [
+            {
+              offer: makeOffer({ externalId: 'disappeared', quantity: 0 }),
+              restaurantId: 1,
+              previousQuantity: 3,
+            },
+          ],
+        },
+        { notifySoldOut: false },
+      ),
+    ).toEqual([]);
   });
 });

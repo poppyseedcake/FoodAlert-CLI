@@ -6,6 +6,9 @@ export type UserProfile = {
   foodsiEmail: string;
   foodsiPassword: string;
   notifyOnlyFavorites: boolean;
+  notifyReStocked: boolean;
+  notifyStockChange: boolean;
+  notifySoldOut: boolean;
   watchIntervalMinutes: number | null;
   telegramEnabled: boolean;
   telegramChatId: string | null;

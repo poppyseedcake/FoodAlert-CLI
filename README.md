@@ -19,6 +19,7 @@ FoodAlert solves this problem. By receiving real-time information about new food
 - Allows you to run a single fetch or a recurring offer check
 - Saves current offers per user
 - Reports changes to offer availability in the console or via Telegram
+- Lets each user independently enable re-stocked, stock-change, and sold-out alerts
 - Allows you to manage your list of favorite and ignored restaurants
 - Allows you to enable notifications only for your favorite restaurants
 
@@ -49,7 +50,7 @@ Once launched, you'll see an interactive menu in the terminal.
 2. Run `Run once for user` to retrieve the first offer status.
 3. Go to `Offers` to view the current saved offers for the selected user.
 4. Go to `Restaurants` to add restaurants to `favorites` or `ignored`.
-5. Go to `Settings` if you want to set a custom check interval or enable `favorites only` mode.
+5. Go to `Settings` if you want to configure Alert Policy, set a custom check interval, or enable `favorites only` mode.
 6. Run `Watch one user` or `Watch all users` to have the application check offers periodically.
 7. Use `Status` to view active watchers and `Stop watchers` to stop them.
 
@@ -61,10 +62,12 @@ Telegram alerts:
 
 Alerts appear directly in the console. The app detects:
 
-- new offer
-- offer back in stock
-- sold out
-- change in available items
+- new offer, which is always enabled
+- offer back in stock, which is enabled by default for new users
+- sold out, which is disabled by default for new users
+- change in available items, which is disabled by default for new users
+
+Alert Policy is shared by console and Telegram delivery. Existing users retain all alert categories when upgrading.
 
 ## Contributing
 
